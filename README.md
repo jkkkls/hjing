@@ -31,7 +31,7 @@ go install github.com/jkkkls/hjing/cmds/hjing@latest
 ```bash
 
 # 创建空项目
-gonew github.com/jkkkls/hjing/layout/server github.com/<authorName>/<projectName>
+gonew github.com/jkkkls/hjing/layout/project github.com/<authorName>/<projectName>
 
 cd <projectName>
 # 添加应用
