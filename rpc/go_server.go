@@ -408,7 +408,6 @@ func (s *service) call(server *Server, sending *sync.Mutex, mtype *methodType, r
 
 	// Invoke the method, providing a new value for the reply.
 	start := time.Now()
-	utils.SetCallId(req.Conn.GetUid(), req.Conn.GetCallId())
 	returnValues := function.Call([]reflect.Value{s.rcvr, reflect.ValueOf(req.Conn), argv, replyv})
 	utils.UnLockCallId()
 

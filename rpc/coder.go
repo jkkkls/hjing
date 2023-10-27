@@ -127,12 +127,9 @@ func (c *PbClientCodec) WriteRequest(r *Request, body interface{}) error {
 			GateName: r.Conn.GateName,
 			Remote:   r.Conn.Remote,
 			Id:       r.Conn.Id,
-			Uid:      r.Conn.Uid,
-			Token:    r.Conn.Token,
 			CallId:   r.Conn.CallId,
 			Kvs:      r.Conn.Kvs,
 			Ps:       r.Conn.Ps,
-			Game:     r.Conn.Game,
 		}
 	}
 
@@ -185,12 +182,9 @@ func (c *PbClientCodec) WriteByteRequest(r *Request, buf []byte) error {
 			GateName: r.Conn.GateName,
 			Remote:   r.Conn.Remote,
 			Id:       r.Conn.Id,
-			Uid:      r.Conn.Uid,
-			Token:    r.Conn.Token,
 			CallId:   r.Conn.CallId,
 			Kvs:      r.Conn.Kvs,
 			Ps:       r.Conn.Ps,
-			Game:     r.Conn.Game,
 		}
 	}
 
@@ -239,7 +233,6 @@ func NewPbServerCodec(rwc io.ReadWriteCloser) ServerCodec {
 }
 
 func (c *PbServerCodec) WriteResponse(resp *Response, body interface{}) error {
-	//TODO: 优化, 使用缓存池
 	var cresp RspHeader
 	cresp.Method = resp.ServiceMethod
 	cresp.Seq = resp.Seq
@@ -282,12 +275,9 @@ func (c *PbServerCodec) ReadRequestHeader(req *Request) error {
 			GateName: c.req.Context.GateName,
 			Remote:   c.req.Context.Remote,
 			Id:       c.req.Context.Id,
-			Uid:      c.req.Context.Uid,
-			Token:    c.req.Context.Token,
 			CallId:   c.req.Context.CallId,
 			Kvs:      c.req.Context.Kvs,
 			Ps:       c.req.Context.Ps,
-			Game:     c.req.Context.Game,
 		}
 	}
 	return nil
