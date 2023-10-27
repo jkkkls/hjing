@@ -17,6 +17,7 @@ var cmd = &cobra.Command{
 
 func init() {
 	cmd.AddCommand(app.CmdAddApp)
+	cmd.AddCommand(app.CmdAddSrv)
 	// cmd.AddCommand(proto.CmdProto)
 	// cmd.AddCommand(upgrade.CmdUpgrade)
 	// cmd.AddCommand(change.CmdChange)

@@ -1,4 +1,4 @@
-package {{serviceName}}
+package {{lowServiceName}}
 
 // {{serviceName}}Service 服务
 type {{serviceName}}Service struct {

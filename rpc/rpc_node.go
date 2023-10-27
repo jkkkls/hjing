@@ -17,10 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jkkkls/hjing/etcdapi"
 	"github.com/jkkkls/hjing/utils"
-	"github.com/seveye/goms/watch_config"
-
-	"github.com/seveye/goms/watch"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -37,7 +35,7 @@ type GxService interface {
 
 // GxNodeConn 微服务节点信息
 type GxNodeConn struct {
-	Info  *watch_config.NodeInfo
+	Info  *etcdapi.NodeInfo
 	Conn  *Client
 	Close bool
 }
@@ -50,9 +48,10 @@ type GxNode struct {
 	Server   *Server  //自己rpc服务端
 	Services sync.Map //自己的服务列表
 
-	WatchClient *watch.WatchClient //watch客户端
-	RpcClient   sync.Map           //到其他节点的连接
-	CmdService  sync.Map           //消息对应服务名
+	EtcdCli *etcdapi.EtcdCli //watch客户端
+
+	RpcClient  sync.Map //到其他节点的连接
+	CmdService sync.Map //消息对应服务名
 
 	// ServiceNode sync.Map               //服务对应节点名
 	Mutex       sync.Mutex
@@ -68,7 +67,7 @@ type GxNode struct {
 	//
 	MockData    map[string]*MockRsp
 	RpcCallBack RpcCallBack
-	Node        *watch_config.NodeInfo
+	Node        *etcdapi.NodeInfo
 }
 
 type MockRsp struct {
@@ -80,9 +79,9 @@ type MockRsp struct {
 // NodeIntance 本节点实例
 var NodeIntance GxNode
 
-// GetWatchClient 获取master连接实例
-func GetWatchClient() *watch.WatchClient {
-	return NodeIntance.WatchClient
+// GetEtcdClient 获取master连接实例
+func GetEtcdClient() *etcdapi.EtcdCli {
+	return NodeIntance.EtcdCli
 }
 
 // 获取节点地址，支持host1/host2:port和host:port格式
@@ -104,7 +103,7 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 }
 
 // connectNode 连接到指定节点
-func connectNode(info *watch_config.NodeInfo) {
+func connectNode(info *etcdapi.NodeInfo) {
 	if info.Name == NodeIntance.Name {
 		return
 	}
@@ -162,7 +161,7 @@ func handleExit() {
 	utils.Submit(func() {
 		<-signalChan
 
-		watch_config.DelRegisterNode(NodeIntance.WatchClient, NodeIntance.Node)
+		etcdapi.DelRegisterNode(NodeIntance.EtcdCli, NodeIntance.Node)
 
 		NodeIntance.Services.Range(func(key, value interface{}) bool {
 			utils.Submit(func() {
@@ -187,16 +186,16 @@ func RegisterRpcCallBack(cb RpcCallBack) {
 
 // NodeConfig 节点配置
 type NodeConfig struct {
-	Client   *watch.WatchClient //服务注册发现节点
-	Id       uint64             //节点id
-	Nodename string             //节点名称
-	Nodetype string             //节点类型，rpc调用时候可以根据类型调用
-	Set      string             //节点集名称，有时候需要对节点进行分组
-	Host     string             //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
-	Port     int                //节点rpc端口
-	Region   uint32             //地区
-	Cmds     map[string]int32   //节点支持cmd的，需要使用protobuf定义的cmd
-	HttpPort int                //节点http端口
+	Client   *etcdapi.EtcdCli //服务注册发现节点
+	Id       uint64           //节点id
+	Nodename string           //节点名称
+	Nodetype string           //节点类型，rpc调用时候可以根据类型调用
+	Set      string           //节点集名称，有时候需要对节点进行分组
+	Host     string           //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
+	Port     int              //节点rpc端口
+	Region   uint32           //地区
+	Cmds     map[string]int32 //节点支持cmd的，需要使用protobuf定义的cmd
+	HttpPort int              //节点http端口
 }
 
 // InitNode 初始化服务节点
@@ -217,7 +216,7 @@ func InitNode(config *NodeConfig) {
 	NodeIntance.ExitTime = 1
 	NodeIntance.Region = config.Region
 	NodeIntance.Set = config.Set
-	NodeIntance.WatchClient = config.Client
+	NodeIntance.EtcdCli = config.Client
 	NodeIntance.ServiceNode = make(map[string]map[string]bool)
 	NodeIntance.Server = NewServer()
 	NodeIntance.Server.RpcCallBack = NodeIntance.RpcCallBack
@@ -240,7 +239,7 @@ func InitNode(config *NodeConfig) {
 	NodeIntance.IDGen = utils.NewIDGen(config.Id)
 	addr := fmt.Sprintf("%v:%v", config.Host, config.Port)
 	listenPort := fmt.Sprintf(":%v", config.Port)
-	NodeIntance.Node = &watch_config.NodeInfo{
+	NodeIntance.Node = &etcdapi.NodeInfo{
 		Id:      config.Id,
 		Name:    NodeIntance.Name,
 		Type:    config.Nodetype,
@@ -249,20 +248,20 @@ func InitNode(config *NodeConfig) {
 		Set:     config.Set,
 	}
 
-	if NodeIntance.WatchClient != nil {
+	if NodeIntance.EtcdCli != nil {
 		// 注册节点信息
 		utils.Submit(func() {
 			NodeIntance.Services.Range(func(key, value interface{}) bool {
 				serviceName := key.(string)
 				utils.Info("初始化服务", "name", serviceName)
-				service := &watch_config.ServiceInfo{
+				service := &etcdapi.ServiceInfo{
 					Name: serviceName,
 				}
 				if len(config.Cmds) == 0 {
 					funcs := utils.ExportServiceFunction(value)
 					for k1, v1 := range funcs {
 						// 	serviceName, k1, v1)
-						service.Func = append(service.Func, &watch_config.FunctionInfo{
+						service.Func = append(service.Func, &etcdapi.FunctionInfo{
 							Name: v1,
 							Cmd:  k1,
 						})
@@ -277,7 +276,7 @@ func InitNode(config *NodeConfig) {
 						if serviceName != arr[0] {
 							continue
 						}
-						service.Func = append(service.Func, &watch_config.FunctionInfo{
+						service.Func = append(service.Func, &etcdapi.FunctionInfo{
 							Name: arr[1],
 							Cmd:  uint16(v1),
 						})
@@ -289,13 +288,13 @@ func InitNode(config *NodeConfig) {
 				return true
 			})
 
-			watch_config.RegisterNode(NodeIntance.WatchClient, NodeIntance.Node)
+			etcdapi.RegisterNode(NodeIntance.EtcdCli, NodeIntance.Node)
 			log.Println("RegisterNode", config.Nodename, NodeIntance.Node.Address)
 		})
 
 		utils.Submit(func() {
 			// 拉去公共节点
-			nodes := watch_config.GetAllRegisterNode(NodeIntance.WatchClient, "")
+			nodes := etcdapi.GetAllRegisterNode(NodeIntance.EtcdCli)
 			for _, v := range nodes {
 				if v.Set != "" && v.Set != config.Set {
 					continue
@@ -305,7 +304,7 @@ func InitNode(config *NodeConfig) {
 			}
 
 			// 拉去业务集合的其他节点信息
-			nodes = watch_config.GetAllRegisterNode(NodeIntance.WatchClient, NodeIntance.Set)
+			nodes = etcdapi.GetAllRegisterNode(NodeIntance.EtcdCli)
 			for _, v := range nodes {
 				if v.Set != "" && v.Set != config.Set {
 					continue
@@ -350,7 +349,7 @@ func QueryNodeStatus() []*GxNodeConn {
 	NodeIntance.RpcClient.Range(func(key interface{}, value interface{}) bool {
 		nodeInfo := value.(*GxNodeConn)
 		cs = append(cs, &GxNodeConn{
-			Info: &watch_config.NodeInfo{
+			Info: &etcdapi.NodeInfo{
 				Id:      nodeInfo.Info.Id,
 				Name:    nodeInfo.Info.Name,
 				Address: nodeInfo.Info.Address,
@@ -379,7 +378,7 @@ func WatchNodeRegister(k, v string) {
 		}
 	} else {
 		//如果不是自己set的节点，可能获取不到数据
-		info := watch_config.GetRegisterNode(NodeIntance.WatchClient, k, NodeIntance.Set)
+		info := etcdapi.GetRegisterNode(NodeIntance.EtcdCli, k)
 		if info != nil && (info.Set == "" || info.Set == NodeIntance.Set) {
 			connectNode(info)
 		}

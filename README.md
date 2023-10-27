@@ -38,10 +38,10 @@ cd <projectName>
 hjing add-app <AppName>
 
 # 添加模版服务到指定应用中
-hjing add-service <AppName> <ServiceName>
+hjing add-svc <AppName> <ServiceName>
 
 # 添加模版接口到指定服务中
-hjing add-interface <ServiceName> <interfaceName>
+hjing add-itf <ServiceName> <interfaceName>
 
 # 添加网关模版到应用中
 hjing add-kcp-gate <AppName>

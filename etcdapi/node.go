@@ -63,7 +63,7 @@ func DelRegisterNode(client *EtcdCli, info *NodeInfo) {
 	client.Delete(key)
 }
 
-func GetRegisterNode(client *EtcdCli, nodeName, set string) *NodeInfo {
+func GetRegisterNode(client *EtcdCli, nodeName string) *NodeInfo {
 	key := fmt.Sprintf("%v:%v", NodeRegisterKey, nodeName)
 	value, err := client.Get(key)
 	if value == "" || err != nil {
