@@ -1,0 +1,43 @@
+syntax = "proto3";
+option go_package = "./;rpc";
+
+// 指定服务转发
+message NodeRpcInfo {
+	string serviceName = 1; //服务名
+	string nodeName = 2;
+}
+
+message Context {
+	string gateName = 1; //客户端连接网关名
+	string remote = 2;	//客户端连接地址
+	uint64 id = 3;      //连接id
+	string token = 4;	//
+	uint64 uid = 5;		//玩家id
+	repeated NodeRpcInfo nodes = 6;
+	uint64 callId = 7; //本次调用id
+	string game = 8;
+	map<string, string> kvs = 9;
+	map<string, int64> ps = 10;
+}
+
+message ReqHeader {
+	string method	= 1;
+	uint64 seq		= 2;
+	Context context = 3;
+	bool noResp = 4;
+	int32 raw = 5;
+}
+
+message RspHeader {
+	string method	= 1;
+	uint64 seq		= 2;
+	string error	= 3;
+	uint32 ret		= 4;
+	Context context = 5;
+	bool noResp = 6;
+	int32 raw = 7;
+}
+
+message NullMessage {
+	
+}

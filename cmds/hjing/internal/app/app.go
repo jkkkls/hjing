@@ -13,7 +13,7 @@ import (
 var CmdAddApp = &cobra.Command{
 	Use:   "add-app",
 	Short: "Create a template",
-	Long:  "Create a project using the repository template. Example: hjing add-app <AppName>",
+	Long:  "Create a app using the repository template. Example: hjing add-app <AppName>",
 	Run:   run,
 }
 
@@ -22,7 +22,6 @@ func isValidAppName(appName string) bool {
 	ok, _ := regexp.MatchString("^[a-zA-Z][a-zA-Z0-9]+$", appName)
 	return ok
 }
-
 func run(cmd *cobra.Command, args []string) {
 	appName := args[0]
 	if !isValidAppName(appName) {

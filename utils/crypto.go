@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/seveye/goms/util/bytes_cache"
+	"github.com/jkkkls/hjing/utils/bytes_cache"
 )
 
 // DesEncrypt des加密函数，返回加密后的结果长度是8的倍数
