@@ -19,6 +19,9 @@ wget https://github.com/protocolbuffers/protobuf/releases/download/v24.4/protoc-
 # 安装protoc-gen-gogu
 go install gitee.com/jkkkls/protobuf/cmd/protoc-gen-gogu@latest
 
+# 安装gonew
+go install golang.org/x/tools/cmd/gonew@latest
+
 # 安装项目工具hjing
 go install github.com/jkkkls/hjing/cmds/hjing@latest
 ```
@@ -27,11 +30,10 @@ go install github.com/jkkkls/hjing/cmds/hjing@latest
 
 ```bash
 
-# 创建项目
-hjing new <projectName>
+# 创建空项目
+gonew github.com/jkkkls/hjing/layout/server github.com/<authorName>/<projectName>
 
 cd <projectName>
-
 # 添加应用
 hjing add-app <AppName>
 
