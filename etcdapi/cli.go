@@ -25,6 +25,10 @@ func ConnEtcd(addrs ...string) (*EtcdCli, error) {
 	}, nil
 }
 
+func (ec *EtcdCli) Start() {
+
+}
+
 func (ec *EtcdCli) Get(key string) (string, error) {
 	rsp, err := ec.Cli.Get(context.TODO(), key)
 	if err != nil {

@@ -3,13 +3,13 @@
 package main
 
 import (
-	"github.com/jkkkls/hjing/utils"
+	"github.com/jkkkls/hjing/rpc"
 
 	//end import
 )
 
 func main() {
-	utils.NewApp("{{appName}}.yaml").WithRegister(func(app *utils.App) error {
+	rpc.NewApp("{{appName}}.yaml").WithRegister(func(app *rpc.App) error {
 		//
 		//end register
 		return nil

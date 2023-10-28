@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/jkkkls/hjing/utils"
+	"github.com/jkkkls/hjing/rpc"
 )
 
 func main() {
-	utils.NewApp("app.yaml").WithRegister(func(app *utils.App) error {
+	rpc.NewApp("app.yaml").WithRegister(func(app *rpc.App) error {
 		// rpc.RegisterService(serviceName, service.servicename)
 		//end register
 		return nil

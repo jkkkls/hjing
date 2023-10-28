@@ -42,13 +42,14 @@ type GxNodeConn struct {
 
 // GxNode 本节点信息
 type GxNode struct {
-	Id       uint64   //自己的节点名
-	Name     string   //自己的节点名
-	Type     string   //自己的节点名
+	Config *NodeConfig
+	// Id       uint64   //自己的节点名
+	// Name     string   //自己的节点名
+	// Type     string   //自己的节点名
 	Server   *Server  //自己rpc服务端
 	Services sync.Map //自己的服务列表
 
-	EtcdCli *etcdapi.EtcdCli //watch客户端
+	// EtcdCli *etcdapi.EtcdCli //watch客户端
 
 	RpcClient  sync.Map //到其他节点的连接
 	CmdService sync.Map //消息对应服务名
@@ -56,9 +57,9 @@ type GxNode struct {
 	// ServiceNode sync.Map               //服务对应节点名
 	Mutex       sync.Mutex
 	ServiceNode map[string]map[string]bool //服务对应节点名
-	Region      uint32
-	Set         string
-	ExitTime    time.Duration
+	// Region      uint32
+	// Set         string
+	ExitTime time.Duration
 
 	//全局变量
 	IDGen *utils.IDGen
@@ -81,7 +82,7 @@ var NodeIntance GxNode
 
 // GetEtcdClient 获取master连接实例
 func GetEtcdClient() *etcdapi.EtcdCli {
-	return NodeIntance.EtcdCli
+	return NodeIntance.Config.Client
 }
 
 // 获取节点地址，支持host1/host2:port和host:port格式
@@ -95,7 +96,7 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 	}
 
 	i := 0
-	if nodeRegion != NodeIntance.Region {
+	if nodeRegion != NodeIntance.Config.Region {
 		i = 1
 	}
 
@@ -104,7 +105,7 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 
 // connectNode 连接到指定节点
 func connectNode(info *etcdapi.NodeInfo) {
-	if info.Name == NodeIntance.Name {
+	if info.Name == NodeIntance.Config.Nodename {
 		return
 	}
 
@@ -161,7 +162,7 @@ func handleExit() {
 	utils.Submit(func() {
 		<-signalChan
 
-		etcdapi.DelRegisterNode(NodeIntance.EtcdCli, NodeIntance.Node)
+		etcdapi.DelRegisterNode(NodeIntance.Config.Client, NodeIntance.Node)
 
 		NodeIntance.Services.Range(func(key, value interface{}) bool {
 			utils.Submit(func() {
@@ -210,13 +211,8 @@ type NodeConfig struct {
 func InitNode(config *NodeConfig) {
 	utils.Info("初始化服务节点", "id", config.Id, "name", config.Nodename, "host", config.Host, "port", config.Port, "region", config.Region)
 
-	NodeIntance.Id = config.Id
-	NodeIntance.Name = config.Nodename
-	NodeIntance.Type = config.Nodetype
+	NodeIntance.Config = config
 	NodeIntance.ExitTime = 1
-	NodeIntance.Region = config.Region
-	NodeIntance.Set = config.Set
-	NodeIntance.EtcdCli = config.Client
 	NodeIntance.ServiceNode = make(map[string]map[string]bool)
 	NodeIntance.Server = NewServer()
 	NodeIntance.Server.RpcCallBack = NodeIntance.RpcCallBack
@@ -241,14 +237,14 @@ func InitNode(config *NodeConfig) {
 	listenPort := fmt.Sprintf(":%v", config.Port)
 	NodeIntance.Node = &etcdapi.NodeInfo{
 		Id:      config.Id,
-		Name:    NodeIntance.Name,
+		Name:    NodeIntance.Config.Nodename,
 		Type:    config.Nodetype,
 		Address: addr,
 		Region:  config.Region,
 		Set:     config.Set,
 	}
 
-	if NodeIntance.EtcdCli != nil {
+	if NodeIntance.Config.Client != nil {
 		// 注册节点信息
 		utils.Submit(func() {
 			NodeIntance.Services.Range(func(key, value interface{}) bool {
@@ -265,7 +261,7 @@ func InitNode(config *NodeConfig) {
 							Name: v1,
 							Cmd:  k1,
 						})
-						AddServiceMethod(NodeIntance.Name, NodeIntance.Node.Type, k1, fmt.Sprintf("%v.%v", service.Name, v1))
+						AddServiceMethod(NodeIntance.Config.Nodename, NodeIntance.Node.Type, k1, fmt.Sprintf("%v.%v", service.Name, v1))
 					}
 				} else {
 					for k1, v1 := range config.Cmds {
@@ -280,7 +276,7 @@ func InitNode(config *NodeConfig) {
 							Name: arr[1],
 							Cmd:  uint16(v1),
 						})
-						AddServiceMethod(NodeIntance.Name, NodeIntance.Node.Type, uint16(v1), fmt.Sprintf("%v.%v", service.Name, arr[1]))
+						AddServiceMethod(NodeIntance.Config.Nodename, NodeIntance.Node.Type, uint16(v1), fmt.Sprintf("%v.%v", service.Name, arr[1]))
 					}
 				}
 
@@ -288,13 +284,13 @@ func InitNode(config *NodeConfig) {
 				return true
 			})
 
-			etcdapi.RegisterNode(NodeIntance.EtcdCli, NodeIntance.Node)
+			etcdapi.RegisterNode(NodeIntance.Config.Client, NodeIntance.Node)
 			log.Println("RegisterNode", config.Nodename, NodeIntance.Node.Address)
 		})
 
 		utils.Submit(func() {
 			// 拉去公共节点
-			nodes := etcdapi.GetAllRegisterNode(NodeIntance.EtcdCli)
+			nodes := etcdapi.GetAllRegisterNode(NodeIntance.Config.Client)
 			for _, v := range nodes {
 				if v.Set != "" && v.Set != config.Set {
 					continue
@@ -304,7 +300,7 @@ func InitNode(config *NodeConfig) {
 			}
 
 			// 拉去业务集合的其他节点信息
-			nodes = etcdapi.GetAllRegisterNode(NodeIntance.EtcdCli)
+			nodes = etcdapi.GetAllRegisterNode(NodeIntance.Config.Client)
 			for _, v := range nodes {
 				if v.Set != "" && v.Set != config.Set {
 					continue
@@ -378,8 +374,8 @@ func WatchNodeRegister(k, v string) {
 		}
 	} else {
 		//如果不是自己set的节点，可能获取不到数据
-		info := etcdapi.GetRegisterNode(NodeIntance.EtcdCli, k)
-		if info != nil && (info.Set == "" || info.Set == NodeIntance.Set) {
+		info := etcdapi.GetRegisterNode(NodeIntance.Config.Client, k)
+		if info != nil && (info.Set == "" || info.Set == NodeIntance.Config.Set) {
 			connectNode(info)
 		}
 	}
@@ -456,7 +452,7 @@ func GetNode(nodeName string) *Client {
 func AddServiceMethod(nodeName string, nodeType string, cmd uint16, serviceMethod string) {
 	key := fmt.Sprintf("%v.%v", nodeType, cmd)
 	NodeIntance.CmdService.Store(key, serviceMethod)
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		log.Println("注册对外接口", "nodeName:", nodeName, "key:", key, "serviceMethod:", serviceMethod)
 	}
 	NodeIntance.CmdService.Store(fmt.Sprintf(".%v", cmd), serviceMethod)
@@ -485,7 +481,7 @@ func NodeCall(nodeName string, serviceMethod string, req proto.Message, rsp prot
 		return mockRet, mockErr
 	}
 
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		return NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
 	}
 
@@ -502,7 +498,7 @@ func NodeJsonCallWithConn(context *Context, nodeName string, serviceMethod strin
 	if ok, mockRsp, mockRet, mockErr := callMock(serviceMethod); ok {
 		return mockRet, mockRsp.([]byte), mockErr
 	}
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, true)
 	}
 
@@ -519,7 +515,7 @@ func NodeRawCallWithConn(context *Context, nodeName string, serviceMethod string
 	if ok, mockRsp, mockRet, mockErr := callMock(serviceMethod); ok {
 		return mockRet, mockRsp.([]byte), mockErr
 	}
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, false)
 	}
 
@@ -537,7 +533,7 @@ func NodeSend(nodeName string, serviceMethod string, req proto.Message) error {
 		return mockErr
 	}
 
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		utils.Submit(func() { NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, nil) })
 		return nil
 	}
@@ -559,7 +555,7 @@ func NodeCallWithConn(context *Context, nodeName string, serviceMethod string, r
 		return mockRet, mockErr
 	}
 
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		return NodeIntance.Server.InternalCall(context, serviceMethod, req, rsp)
 	}
 
@@ -577,7 +573,7 @@ func NodeSendWithConn(context *Context, nodeName string, serviceMethod string, r
 		return mockErr
 	}
 
-	if nodeName == NodeIntance.Name {
+	if nodeName == NodeIntance.Config.Nodename {
 		utils.Submit(func() {
 			NodeIntance.Server.InternalCall(context, serviceMethod, req, nil)
 		})
@@ -688,7 +684,7 @@ func Broadcast(serviceMethod string, req proto.Message) error {
 	}
 
 	for name, client := range clients {
-		if name == NodeIntance.Name {
+		if name == NodeIntance.Config.Nodename {
 			continue
 		}
 
@@ -710,7 +706,7 @@ func BroadcastCall(serviceMethod string, req proto.Message, rsp proto.Message, f
 	if ok {
 		// 内部调用
 		NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
-		if !f(NodeIntance.Name) {
+		if !f(NodeIntance.Config.Nodename) {
 			return 0, nil
 		}
 	}
@@ -721,7 +717,7 @@ func BroadcastCall(serviceMethod string, req proto.Message, rsp proto.Message, f
 	}
 
 	for name, client := range clients {
-		if name == NodeIntance.Name {
+		if name == NodeIntance.Config.Nodename {
 			continue
 		}
 
@@ -927,7 +923,7 @@ func getClient(serviceName string) *Client {
 		if client2 == nil {
 			client2 = c
 		}
-		if client == nil && NodeIntance.Region == c.Region {
+		if client == nil && NodeIntance.Config.Region == c.Region {
 			client = c
 		}
 	}

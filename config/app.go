@@ -8,8 +8,12 @@ import (
 
 // 基础配置
 type App struct {
+	Id        uint64 `yaml:"id"`
 	Name      string `yaml:"name"`
 	Desc      string `yaml:"desc"`
+	Host      string `yaml:"host"`
+	Port      int    `yaml:"port"`
+	Type      string `yaml:"type"`
 	PprofAddr string `yaml:"pprofAddr"` //"0.0.0.0:9061"
 	Pro       bool   `yaml:"pro"`
 
@@ -25,17 +29,6 @@ type Log struct {
 	Screen bool   `yaml:"screen"`
 }
 
-// RpcNode配置
-type RpcNode struct {
-	Id   uint64 `yaml:"id"`
-	Name string `yaml:"name"`
-	Ip   string `yaml:"ip"`
-	Port int    `yaml:"port"`
-
-	Type   string `yaml:"type"`
-	Weight int    `yaml:"weight"`
-}
-
 // gin配置
 type Gin struct {
 	Port int `yaml:"port"`
@@ -46,17 +39,13 @@ type Fast struct {
 	Port int `yaml:"port"`
 }
 
-type RpcNodes struct {
-	Nodes map[string]RpcNode `yaml:"nodes"`
-}
-
 type NodeConf struct {
-	App      App         `yaml:"app"`
-	Gin      Gin         `yaml:"gin"`
-	Fast     Fast        `yaml:"fast"`
-	Log      Log         `yaml:"log"`
-	Custom   map[any]any `yaml:"custom"`
-	RpcNodes RpcNodes    `yaml:"-"`
+	App    App         `yaml:"app"`
+	Etcds  []string    `yaml:"etcds"`
+	Gin    Gin         `yaml:"gin"`
+	Fast   Fast        `yaml:"fast"`
+	Log    Log         `yaml:"log"`
+	Custom map[any]any `yaml:"custom"`
 }
 
 var ConfInstance *NodeConf
@@ -65,22 +54,7 @@ func UpdateApp(f func(c *NodeConf)) {
 	f(ConfInstance)
 }
 
-func LoadGlobalConf(global string) error {
-	ConfInstance = &NodeConf{}
-	//
-	buff, err := os.ReadFile(global)
-	if err != nil {
-		return err
-	}
-	err = yaml.Unmarshal(buff, &ConfInstance.RpcNodes)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func loadConf(global, app string) (*NodeConf, error) {
+func loadConf(app string) (*NodeConf, error) {
 	tmpIns := ConfInstance
 	//
 	temp := &NodeConf{}
@@ -90,15 +64,6 @@ func loadConf(global, app string) (*NodeConf, error) {
 		return nil, err
 	}
 	err = yaml.Unmarshal(buff, temp)
-	if err != nil {
-		return nil, err
-	}
-	//
-	buff, err = os.ReadFile(global)
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(buff, &temp.RpcNodes)
 	if err != nil {
 		return nil, err
 	}
@@ -114,9 +79,8 @@ func loadConf(global, app string) (*NodeConf, error) {
 	return ConfInstance, nil
 }
 
-func LoadConf(global, app string) (*NodeConf, error) {
-
-	return loadConf(global, app)
+func LoadConf(app string) (*NodeConf, error) {
+	return loadConf(app)
 }
 
 type C struct {
@@ -174,13 +138,4 @@ func GetInt(fields ...any) int {
 	}
 
 	return v
-}
-
-// GetRpcNode 返回节点grpc信息
-func GetRpcNode() *RpcNode {
-	v, ok := ConfInstance.RpcNodes.Nodes[ConfInstance.App.Name]
-	if !ok {
-		return nil
-	}
-	return &v
 }

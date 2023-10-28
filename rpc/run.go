@@ -1,4 +1,4 @@
-package utils
+package rpc
 
 import (
 	"flag"
@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/jkkkls/hjing/config"
+	"github.com/jkkkls/hjing/etcdapi"
+	"github.com/jkkkls/hjing/utils"
 )
 
 var (
@@ -50,7 +52,7 @@ func (app *App) Run() {
 	fmt.Println("Build Area   : " + Area)
 	flag.Parse()
 
-	err := SetUlimit()
+	err := utils.SetUlimit()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -62,17 +64,17 @@ func (app *App) Run() {
 		configName = app.configName
 	}
 
-	nodeConfig, err := config.LoadConf("global.yaml", configName)
+	nodeConfig, err := config.LoadConf(configName)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 
 	//打开pprof
-	RunMonitor()
+	utils.RunMonitor()
 
 	// 初始化日志
-	GosLogInit(nodeConfig.App.Name, nodeConfig.Log.Dir, nodeConfig.Log.Screen, nodeConfig.Log.Level)
+	utils.GosLogInit(nodeConfig.App.Name, nodeConfig.Log.Dir, nodeConfig.Log.Screen, nodeConfig.Log.Level)
 
 	//pid文件
 	os.WriteFile("./"+nodeConfig.App.Name+".pid", []byte(strconv.Itoa(os.Getpid())), 0666)
@@ -86,17 +88,17 @@ func (app *App) Run() {
 		}
 	}
 
-	//连接watch
-	// client, err := watch.NewWatchClient(nodeConfig.Watch.Host)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return
-	// }
+	//连接etcd
+	client, err := etcdapi.ConnEtcd(nodeConfig.Etcds...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	// client.RegisterCallback(watch_config.NodeRegisterKey+":", rpc.WatchNodeRegister)
 	// if nodeConfig.Node.Set != "" {
 	// 	client.RegisterCallback(fmt.Sprintf("%v:%v", watch_config.NodeRegisterKey, nodeConfig.Node.Set), rpc.WatchNodeRegister)
 	// }
-	// client.Start()
+	client.Start()
 
 	for _, v := range app.services {
 		err = v(app)
@@ -108,17 +110,14 @@ func (app *App) Run() {
 
 	//rpc节点服务
 	// api.RegisterRpcCallBack()
-	// rpcConf := config.GetRpcNode()
-	// rpc.InitNode(&rpc.NodeConfig{
-	// 	// Client:   client,
-	// 	Id:       rpcConf.Id,
-	// 	Nodename: nodeConfig.App.Name,
-	// 	Nodetype: rpcConf.Type,
-	// 	// Set:      rpcConf.Set,
-	// 	Host:   rpcConf.Ip,
-	// 	Port:   rpcConf.Port,
-	// 	Region: 0,
-	// 	// Cmds:     pb.RequestCmd_value,
-	// 	// HttpPort: nodeConfig.App.HttpPort,
-	// })
+	InitNode(&NodeConfig{
+		Client:   client,
+		Id:       nodeConfig.App.Id,
+		Nodename: nodeConfig.App.Name,
+		Nodetype: nodeConfig.App.Type,
+		Host:     nodeConfig.App.Host,
+		Port:     nodeConfig.App.Port,
+		// Cmds:     pb.RequestCmd_value,
+		// HttpPort: nodeConfig.App.HttpPort,
+	})
 }
