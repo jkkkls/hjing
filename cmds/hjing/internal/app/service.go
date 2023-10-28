@@ -38,37 +38,49 @@ func getDomainFromGoMod() (string, error) {
 
 // CmdAddSrv represents the new command.
 var CmdAddSrv = &cobra.Command{
-	Use:   "add-svc",
+	Use:   "add-svc <appName> <serviceName>",
 	Short: "Create a template",
-	Long:  "Create a services using the repository template. Example: hjing add-app <AppName>",
+	Long:  "Create a services using the repository template. Example: hjing add-svc <appName> <serviceName>",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("requires 2 args, example: hjing add-svc <appName> <serviceName>")
+		}
+
+		if !isValidAppName(args[0]) || !isValidAppName(args[1]) {
+			return fmt.Errorf("name is invalid")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		appName := args[0]
 		svcName := args[1]
-		if !isValidAppName(appName) || !isValidAppName(svcName) {
-			log.Fatal("app name is invalid")
-		}
 		upSvcName := strings.ToUpper(svcName[:1]) + svcName[1:]
 
 		mainFile := fmt.Sprintf("./apps/%v/main.go", appName)
 		buff, err := os.ReadFile(mainFile)
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 		if bytes.Contains(buff, []byte(upSvcName)) {
+			cmd.Usage()
 			log.Fatalf("service[%v] is exists", upSvcName)
 		}
 		if !bytes.Contains(buff, svcRegMask) || !bytes.Contains(buff, svcImportMask) {
+			cmd.Usage()
 			log.Fatalf("main.json format error")
 		}
 
 		// 从go.mod读取domain
 		domain, err := getDomainFromGoMod()
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 
 		err = os.MkdirAll("services/"+svcName, os.ModePerm)
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 
@@ -96,6 +108,7 @@ var CmdAddSrv = &cobra.Command{
 		//生成服务模版
 		err = layout.CopyFile("app/service.go.tpl", "services/"+svcName+"/service.go", "{{lowServiceName}}", svcName, "{{serviceName}}", upSvcName)
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 	},

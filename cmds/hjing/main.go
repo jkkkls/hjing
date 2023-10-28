@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/jkkkls/hjing/cmds/hjing/internal/app"
 
 	"github.com/spf13/cobra"
@@ -23,7 +21,5 @@ func init() {
 }
 
 func main() {
-	if err := cmd.Execute(); err != nil {
-		log.Fatal(err)
-	}
+	cmd.Execute()
 }

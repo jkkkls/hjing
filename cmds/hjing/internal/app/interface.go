@@ -14,30 +14,40 @@ import (
 
 // CmdAddItf represents the new command.
 var CmdAddItf = &cobra.Command{
-	Use:   "add-itf",
+	Use:   "add-itf <serviceName> <interfaceName>",
 	Short: "Add a interface",
-	Long:  "Add a interface using the repository template. Example: hjing add-svc <ServiceName> <interfaceName>",
+	Long:  "Add a interface using the repository template. Example: hjing add-svc <serviceName> <interfaceName>",
+	Args: func(cmd *cobra.Command, args []string) error {
+		if len(args) != 2 {
+			return fmt.Errorf("requires 2 args, example: hjing add-svc <serviceName> <interfaceName>")
+		}
+
+		if !isValidAppName(args[0]) || !isValidAppName(args[1]) {
+			return fmt.Errorf("name is invalid")
+		}
+		return nil
+	},
 	Run: func(cmd *cobra.Command, args []string) {
 		svcName := args[0]
 		itfName := args[1]
-		if !isValidAppName(svcName) || !isValidAppName(itfName) {
-			log.Fatal("name is invalid")
-		}
 		upSvcName := strings.ToUpper(svcName[:1]) + svcName[1:]
 		upItfName := strings.ToUpper(itfName[:1]) + itfName[1:]
 		//服务文件是否存在
 		svcFileName := "services/" + svcName + "/service.go"
 		svcBuff, err := os.ReadFile(svcFileName)
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 		if bytes.Contains(svcBuff, []byte(upItfName+"(context *rpc.Context")) {
+			cmd.Usage()
 			log.Fatal("error: interface is exists")
 		}
 
 		// 从go.mod读取domain
 		domain, err := getDomainFromGoMod()
 		if err != nil {
+			cmd.Usage()
 			log.Fatal(err)
 		}
 
@@ -47,10 +57,12 @@ var CmdAddItf = &cobra.Command{
 		if err != nil {
 			err = layout.CopyFile("app/proto.tpl", protoName, "{{domain}}", domain)
 			if err != nil {
+				cmd.Usage()
 				log.Fatal(err)
 			}
 			buff, err = os.ReadFile(protoName)
 			if err != nil {
+				cmd.Usage()
 				log.Fatal(err)
 			}
 		}
@@ -85,4 +97,5 @@ message %vRsp {}
 		}
 		os.WriteFile(svcFileName, []byte(newBuff), 0644)
 		// utils.ExecCmd("", "go", "fmt", svcFileName)
-	}}
+	},
+}
