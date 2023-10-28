@@ -15,6 +15,7 @@ import (
 var (
 	svcRegMask    = []byte("//end register")
 	svcImportMask = []byte("//end import")
+	rpcImportStr  = []byte(`"github.com/jkkkls/hjing/rpc"`)
 )
 
 func getDomainFromGoMod() (string, error) {
@@ -69,6 +70,12 @@ var CmdAddSrv = &cobra.Command{
 		err = os.MkdirAll("services/"+svcName, os.ModePerm)
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		if !bytes.Contains(buff, rpcImportStr) {
+			buff = bytes.ReplaceAll(buff, svcImportMask, []byte(fmt.Sprintf(`%v
+			%v`,
+				string(rpcImportStr), string(svcImportMask))))
 		}
 
 		//替换引用

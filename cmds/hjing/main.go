@@ -19,10 +19,7 @@ func init() {
 	cmd.AddCommand(app.CmdNew)
 	cmd.AddCommand(app.CmdAddApp)
 	cmd.AddCommand(app.CmdAddSrv)
-	// cmd.AddCommand(proto.CmdProto)
-	// cmd.AddCommand(upgrade.CmdUpgrade)
-	// cmd.AddCommand(change.CmdChange)
-	// cmd.AddCommand(run.CmdRun)
+	cmd.AddCommand(app.CmdAddItf)
 }
 
 func main() {

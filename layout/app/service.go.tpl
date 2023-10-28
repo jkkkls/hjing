@@ -12,7 +12,4 @@ func (service *{{serviceName}}Service) OnEvent(eventName string, args ...any) {}
 func (service *{{serviceName}}Service) Exit() {}
 
 // Run 服务启动函数
-func (service *{{serviceName}}Service) Run() error {}
-
-
-//end method
+func (service *{{serviceName}}Service) Run() error {return nil}

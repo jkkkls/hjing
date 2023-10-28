@@ -4,7 +4,6 @@ package main
 
 import (
 	"github.com/jkkkls/hjing/utils"
-	"github.com/jkkkls/hjing/rpc"
 
 	//end import
 )
