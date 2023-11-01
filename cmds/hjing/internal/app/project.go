@@ -2,10 +2,10 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/jkkkls/hjing/layout"
 	"github.com/jkkkls/hjing/utils"
 	"github.com/spf13/cobra"
@@ -32,7 +32,8 @@ var CmdNew = &cobra.Command{
 		dir := arr[len(arr)-1]
 		if utils.PathExists(dir) {
 			cmd.Usage()
-			log.Fatalf("project dir[%v] has been exitst", dir)
+			color.Red("project dir[%v] has been exitst\n", dir)
+			return
 		}
 
 		upDir := strings.ToUpper(dir[:1]) + dir[1:]
@@ -40,18 +41,23 @@ var CmdNew = &cobra.Command{
 		err := os.MkdirAll(dir, os.ModePerm)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 
 		err = layout.CopyDir("project", dir, "{{projectName}}", projectName, "upProjectName", upDir)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 
 		str, err := utils.ExecCmd(dir, "go", "mod", "init", projectName)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(str, err)
+			color.Red(str, err.Error())
+			return
 		}
+
+		color.Green("create project[%v] success\n", projectName)
 	}}

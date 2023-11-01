@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/jkkkls/hjing/layout"
 	"github.com/jkkkls/hjing/utils"
 	"github.com/spf13/cobra"
@@ -37,7 +38,8 @@ var CmdAddItf = &cobra.Command{
 		svcBuff, err := os.ReadFile(svcFileName)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 		if bytes.Contains(svcBuff, []byte(upItfName+"(context *rpc.Context")) {
 			cmd.Usage()
@@ -48,7 +50,8 @@ var CmdAddItf = &cobra.Command{
 		domain, err := getDomainFromGoMod()
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 
 		//检查proto文件
@@ -58,12 +61,14 @@ var CmdAddItf = &cobra.Command{
 			err = layout.CopyFile("app/proto.tpl", protoName, "{{domain}}", domain)
 			if err != nil {
 				cmd.Usage()
-				log.Fatal(err)
+				color.Red(err.Error())
+				return
 			}
 			buff, err = os.ReadFile(protoName)
 			if err != nil {
 				cmd.Usage()
-				log.Fatal(err)
+				color.Red(err.Error())
+				return
 			}
 		}
 
@@ -75,27 +80,33 @@ message %vRsp {}
 		buff = append(buff, []byte(newContent)...)
 		err = os.WriteFile(protoName, buff, os.ModePerm)
 		if err != nil {
-			log.Fatal(err)
+			cmd.Usage()
+			color.Red(err.Error())
+			return
 		}
 
 		//生成go文件
 		msg, err := utils.ExecCmd("", "protoc", "--gogu_out", "./", "--gogu_opt", "paths=source_relative", protoName)
 		if err != nil {
-			log.Fatal(msg, err)
+			color.Red(msg, err)
+			return
 		}
 
 		//生成接口
 		svcContent := fmt.Sprintf(`func (service *%vService) %v(context *rpc.Context, req *pb.%vReq, rsp *pb.%vRsp) (ret uint16, err error) {
-	return			
+	return
 	}`, upSvcName, upItfName, upItfName, upItfName)
 		svcBuff = append(svcBuff, []byte(svcContent)...)
 		os.WriteFile(svcFileName, svcBuff, 0644)
 
 		newBuff, err := utils.ExecCmd("", "goimports", svcFileName)
 		if err != nil {
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 		os.WriteFile(svcFileName, []byte(newBuff), 0644)
 		// utils.ExecCmd("", "go", "fmt", svcFileName)
+
+		color.Green("create interface[%v] for %v success", itfName, svcName)
 	},
 }

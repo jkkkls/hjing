@@ -2,10 +2,10 @@ package app
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 
+	"github.com/fatih/color"
 	"github.com/jkkkls/hjing/layout"
 	"github.com/spf13/cobra"
 )
@@ -31,14 +31,16 @@ var CmdAddApp = &cobra.Command{
 		err := os.MkdirAll("apps/"+appName, os.ModePerm)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
 		}
 
 		err = layout.CopyFile("app/app.main.go.tpl", "apps/"+appName+"/main.go", "{{appName}}", appName)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
 		}
+
+		color.Green("create app[%v] success", appName)
 	},
 }
 

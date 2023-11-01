@@ -3,10 +3,10 @@ package app
 import (
 	"bytes"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/jkkkls/hjing/layout"
 	"github.com/jkkkls/hjing/utils"
 	"github.com/spf13/cobra"
@@ -59,28 +59,33 @@ var CmdAddSrv = &cobra.Command{
 		buff, err := os.ReadFile(mainFile)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 		if bytes.Contains(buff, []byte(upSvcName)) {
 			cmd.Usage()
-			log.Fatalf("service[%v] is exists", upSvcName)
+			color.Red("service[%v] is exists", upSvcName)
+			return
 		}
 		if !bytes.Contains(buff, svcRegMask) || !bytes.Contains(buff, svcImportMask) {
 			cmd.Usage()
-			log.Fatalf("main.json format error")
+			color.Red("main.json format error")
+			return
 		}
 
 		// 从go.mod读取domain
 		domain, err := getDomainFromGoMod()
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 
 		err = os.MkdirAll("services/"+svcName, os.ModePerm)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
 
 		//替换引用
@@ -102,7 +107,9 @@ var CmdAddSrv = &cobra.Command{
 		err = layout.CopyFile("app/service.go.tpl", "services/"+svcName+"/service.go", "{{lowServiceName}}", svcName, "{{serviceName}}", upSvcName)
 		if err != nil {
 			cmd.Usage()
-			log.Fatal(err)
+			color.Red(err.Error())
+			return
 		}
+		color.Green("create service[%v] success", svcName)
 	},
 }

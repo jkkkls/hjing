@@ -19,6 +19,9 @@ wget https://github.com/protocolbuffers/protobuf/releases/download/v24.4/protoc-
 # 安装protoc-gen-gogu
 go install gitee.com/jkkkls/protobuf/cmd/protoc-gen-gogu@latest
 
+# goimports
+go install golang.org/x/tools/cmd/goimports@latest
+
 # 安装项目工具hjing
 go install github.com/jkkkls/hjing/cmds/hjing@latest
 ```
