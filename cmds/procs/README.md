@@ -16,7 +16,7 @@ procs:
         stop_signal: 2
         show_screen: true
 net:
-    port: 8888
+    addr: localhost:8888
 ```
 
 ## 命令

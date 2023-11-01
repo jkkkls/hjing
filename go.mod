@@ -8,6 +8,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/google/gops v0.3.28
 	github.com/gorilla/websocket v1.5.0
+	github.com/ochinchina/go-daemon v0.1.5
 	github.com/panjf2000/ants/v2 v2.8.2
 	github.com/qiangxue/fasthttp-routing v0.0.0-20160225050629-6ccdc2a18d87
 	github.com/spf13/cobra v1.7.0
@@ -28,6 +29,7 @@ require (
 	github.com/golang/gddo v0.0.0-20210115222349-20d68f94ee1f // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
