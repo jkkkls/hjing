@@ -18,6 +18,7 @@ func init() {
 	cmd.AddCommand(app.CmdAddApp)
 	cmd.AddCommand(app.CmdAddSrv)
 	cmd.AddCommand(app.CmdAddItf)
+	cmd.AddCommand(app.CmdAddDb)
 }
 
 func main() {

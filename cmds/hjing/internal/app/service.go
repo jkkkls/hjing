@@ -15,6 +15,7 @@ import (
 var (
 	svcRegMask    = []byte("//end register")
 	svcImportMask = []byte("//end import")
+	modelRegMask  = []byte("//end models")
 )
 
 func getDomainFromGoMod() (string, error) {

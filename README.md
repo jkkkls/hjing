@@ -49,7 +49,7 @@ hjing add-ws-gate <AppName>
 hjing add-tcp-gate <AppName>
 
 # 添加模版数据库模块到应用中，postgres+grom
-hjing add-db <AppName>
+hjing add-db <DbName>
 
 # 编译项目
 make <projectName>
