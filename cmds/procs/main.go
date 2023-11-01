@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
+	"log"
 
-	"github.com/eolinker/eosc/log"
 	"github.com/ochinchina/go-daemon"
 )
 
