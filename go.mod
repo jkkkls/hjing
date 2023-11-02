@@ -6,6 +6,7 @@ require (
 	github.com/boltdb/bolt v1.3.1
 	github.com/fasthttp/websocket v1.5.6
 	github.com/fatih/color v1.15.0
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/glebarez/sqlite v1.10.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.7.1
