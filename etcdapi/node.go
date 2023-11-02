@@ -3,6 +3,8 @@ package etcdapi
 import (
 	"encoding/json"
 	"fmt"
+
+	"github.com/jkkkls/hjing/config"
 )
 
 // Copyright 2017 guangbo. All rights reserved.
@@ -12,39 +14,14 @@ import (
 //节点通用配置，用于服务注册服务发现
 //key: nodeRegister
 
-const (
-	NodeRegisterKey = "nodeRegister:"
-)
-
-type FunctionInfo struct {
-	Name string `json:"name,omitempty"`
-	Cmd  uint16 `json:"cmd,omitempty"`
-}
-
-type ServiceInfo struct {
-	Name string          `json:"name,omitempty"`
-	Func []*FunctionInfo `json:"func,omitempty"`
-}
-
-// 节点注册函数
-type NodeInfo struct {
-	Id      uint64         `json:"id,omitempty"`
-	Name    string         `json:"name,omitempty"`    //
-	Type    string         `json:"type,omitempty"`    //
-	Address string         `json:"address,omitempty"` //ip:port
-	Service []*ServiceInfo `json:"service,omitempty"` //服务列表
-	Region  uint32         `json:"region,omitempty"`
-	Set     string         `json:"set,omitempty"`
-}
-
-func GetAllRegisterNode(client *EtcdCli) map[string]*NodeInfo {
-	m := make(map[string]*NodeInfo)
-	values, err := client.KeyPrefix(NodeRegisterKey)
+func GetAllRegisterNode(client *EtcdCli) map[string]*config.NodeInfo {
+	m := make(map[string]*config.NodeInfo)
+	values, err := client.KeyPrefix(config.NodeRegisterKey + ":")
 	if err != nil {
 		return m
 	}
 	for i := 0; i < len(values); i = i + 2 {
-		info := &NodeInfo{}
+		info := &config.NodeInfo{}
 		json.Unmarshal([]byte(values[i+1]), info)
 		m[info.Name] = info
 	}
@@ -52,24 +29,24 @@ func GetAllRegisterNode(client *EtcdCli) map[string]*NodeInfo {
 }
 
 // RegisterNode 注册节点和服务
-func RegisterNode(client *EtcdCli, info *NodeInfo) {
-	key := fmt.Sprintf("%v:%v", NodeRegisterKey, info.Name)
+func RegisterNode(client *EtcdCli, info *config.NodeInfo) {
+	key := fmt.Sprintf("%v:%v", config.NodeRegisterKey, info.Name)
 	buff, _ := json.Marshal(info)
 	client.Put(key, string(buff))
 }
 
-func DelRegisterNode(client *EtcdCli, info *NodeInfo) {
-	key := fmt.Sprintf("%v:%v", NodeRegisterKey, info.Name)
+func DelRegisterNode(client *EtcdCli, name string) {
+	key := fmt.Sprintf("%v:%v", config.NodeRegisterKey, name)
 	client.Delete(key)
 }
 
-func GetRegisterNode(client *EtcdCli, nodeName string) *NodeInfo {
-	key := fmt.Sprintf("%v:%v", NodeRegisterKey, nodeName)
+func GetRegisterNode(client *EtcdCli, nodeName string) *config.NodeInfo {
+	key := fmt.Sprintf("%v:%v", config.NodeRegisterKey, nodeName)
 	value, err := client.Get(key)
 	if value == "" || err != nil {
 		return nil
 	}
-	info := &NodeInfo{}
+	info := &config.NodeInfo{}
 	json.Unmarshal([]byte(value), info)
 	return info
 }

@@ -2,8 +2,11 @@ package etcdapi
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
+	"github.com/jkkkls/hjing/config"
+	"github.com/jkkkls/hjing/utils"
 	clientv3 "go.etcd.io/etcd/client/v3"
 )
 
@@ -25,8 +28,27 @@ func ConnEtcd(addrs ...string) (*EtcdCli, error) {
 	}, nil
 }
 
-func (ec *EtcdCli) Start() {
+func (ec *EtcdCli) Watch(key string, f func(string, *config.NodeInfo)) {
+	ch := ec.Cli.Watch(context.Background(), key, clientv3.WithPrefix())
+	utils.Submit(func() {
+		for wresp := range ch {
+			for _, ev := range wresp.Events {
+				switch ev.Type {
+				case clientv3.EventTypePut:
+					info := &config.NodeInfo{}
+					err := json.Unmarshal(ev.Kv.Value, info)
+					if err != nil {
+						utils.Warn("unmarshal node info error", "err", err)
+						continue
+					}
+					f(string(ev.Kv.Key), info)
+				case clientv3.EventTypeDelete:
+					f(string(ev.Kv.Key), nil)
+				}
 
+			}
+		}
+	})
 }
 
 func (ec *EtcdCli) Get(key string) (string, error) {

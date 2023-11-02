@@ -17,7 +17,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/jkkkls/hjing/etcdapi"
+	"github.com/jkkkls/hjing/config"
 	"github.com/jkkkls/hjing/utils"
 
 	"google.golang.org/protobuf/proto"
@@ -33,16 +33,29 @@ type GxService interface {
 	OnEvent(string, ...interface{})
 }
 
+type NodeConfig struct {
+	Id       uint64           //节点id
+	Nodename string           //节点名称
+	Nodetype string           //节点类型，rpc调用时候可以根据类型调用
+	Set      string           //节点集名称，有时候需要对节点进行分组
+	Host     string           //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
+	Port     int              //节点rpc端口
+	Region   uint32           //地区
+	Cmds     map[string]int32 //节点支持cmd的，需要使用protobuf定义的cmd
+	HttpPort int              //节点http端口
+}
+
 // GxNodeConn 微服务节点信息
 type GxNodeConn struct {
-	Info  *etcdapi.NodeInfo
+	Info  *config.NodeInfo
 	Conn  *Client
 	Close bool
 }
 
 // GxNode 本节点信息
 type GxNode struct {
-	Config *NodeConfig
+	IRegister IRegister
+	Config    *NodeConfig
 	// Id       uint64   //自己的节点名
 	// Name     string   //自己的节点名
 	// Type     string   //自己的节点名
@@ -68,7 +81,7 @@ type GxNode struct {
 	//
 	MockData    map[string]*MockRsp
 	RpcCallBack RpcCallBack
-	Node        *etcdapi.NodeInfo
+	Node        *config.NodeInfo
 }
 
 type MockRsp struct {
@@ -78,11 +91,13 @@ type MockRsp struct {
 }
 
 // NodeIntance 本节点实例
-var NodeIntance GxNode
+var (
+	NodeIntance GxNode
+)
 
-// GetEtcdClient 获取master连接实例
-func GetEtcdClient() *etcdapi.EtcdCli {
-	return NodeIntance.Config.Client
+// GetRegisetr 获取master连接实例
+func GetRegisetr() IRegister {
+	return NodeIntance.IRegister
 }
 
 // 获取节点地址，支持host1/host2:port和host:port格式
@@ -104,7 +119,7 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 }
 
 // connectNode 连接到指定节点
-func connectNode(info *etcdapi.NodeInfo) {
+func connectNode(info *config.NodeInfo) {
 	if info.Name == NodeIntance.Config.Nodename {
 		return
 	}
@@ -162,7 +177,7 @@ func handleExit() {
 	utils.Submit(func() {
 		<-signalChan
 
-		etcdapi.DelRegisterNode(NodeIntance.Config.Client, NodeIntance.Node)
+		NodeIntance.IRegister.DelNode(NodeIntance.Config.Nodename)
 
 		NodeIntance.Services.Range(func(key, value interface{}) bool {
 			utils.Submit(func() {
@@ -186,18 +201,6 @@ func RegisterRpcCallBack(cb RpcCallBack) {
 }
 
 // NodeConfig 节点配置
-type NodeConfig struct {
-	Client   *etcdapi.EtcdCli //服务注册发现节点
-	Id       uint64           //节点id
-	Nodename string           //节点名称
-	Nodetype string           //节点类型，rpc调用时候可以根据类型调用
-	Set      string           //节点集名称，有时候需要对节点进行分组
-	Host     string           //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
-	Port     int              //节点rpc端口
-	Region   uint32           //地区
-	Cmds     map[string]int32 //节点支持cmd的，需要使用protobuf定义的cmd
-	HttpPort int              //节点http端口
-}
 
 // InitNode 初始化服务节点
 // @client 服务管理连接
@@ -208,10 +211,10 @@ type NodeConfig struct {
 // @port 节点端口
 // @region 所属区域
 // @cmds 注册和uint16的cmd绑定接口，用于游戏网关。原来是通过服务接口最后四个字符标识cmd，现在通过proto文件获取
-func InitNode(config *NodeConfig) {
-	utils.Info("初始化服务节点", "id", config.Id, "name", config.Nodename, "host", config.Host, "port", config.Port, "region", config.Region)
+func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
+	utils.Info("初始化服务节点", "id", nodeConfig.Id, "name", nodeConfig.Nodename, "host", nodeConfig.Host, "port", nodeConfig.Port, "region", nodeConfig.Region)
 
-	NodeIntance.Config = config
+	NodeIntance.Config = nodeConfig
 	NodeIntance.ExitTime = 1
 	NodeIntance.ServiceNode = make(map[string]map[string]bool)
 	NodeIntance.Server = NewServer()
@@ -232,39 +235,39 @@ func InitNode(config *NodeConfig) {
 	handleExit()
 
 	//初始化一些全局变量
-	NodeIntance.IDGen = utils.NewIDGen(config.Id)
-	addr := fmt.Sprintf("%v:%v", config.Host, config.Port)
-	listenPort := fmt.Sprintf(":%v", config.Port)
-	NodeIntance.Node = &etcdapi.NodeInfo{
-		Id:      config.Id,
-		Name:    NodeIntance.Config.Nodename,
-		Type:    config.Nodetype,
+	NodeIntance.IDGen = utils.NewIDGen(nodeConfig.Id)
+	addr := fmt.Sprintf("%v:%v", nodeConfig.Host, nodeConfig.Port)
+	listenPort := fmt.Sprintf(":%v", nodeConfig.Port)
+	NodeIntance.Node = &config.NodeInfo{
+		Id:      nodeConfig.Id,
+		Name:    nodeConfig.Nodename,
+		Type:    nodeConfig.Nodetype,
 		Address: addr,
-		Region:  config.Region,
-		Set:     config.Set,
+		Region:  nodeConfig.Region,
+		Set:     nodeConfig.Set,
 	}
 
-	if NodeIntance.Config.Client != nil {
+	if NodeIntance.IRegister != nil {
 		// 注册节点信息
 		utils.Submit(func() {
 			NodeIntance.Services.Range(func(key, value interface{}) bool {
 				serviceName := key.(string)
 				utils.Info("初始化服务", "name", serviceName)
-				service := &etcdapi.ServiceInfo{
+				service := &config.ServiceInfo{
 					Name: serviceName,
 				}
-				if len(config.Cmds) == 0 {
+				if len(nodeConfig.Cmds) == 0 {
 					funcs := utils.ExportServiceFunction(value)
 					for k1, v1 := range funcs {
 						// 	serviceName, k1, v1)
-						service.Func = append(service.Func, &etcdapi.FunctionInfo{
+						service.Func = append(service.Func, &config.FunctionInfo{
 							Name: v1,
 							Cmd:  k1,
 						})
 						AddServiceMethod(NodeIntance.Config.Nodename, NodeIntance.Node.Type, k1, fmt.Sprintf("%v.%v", service.Name, v1))
 					}
 				} else {
-					for k1, v1 := range config.Cmds {
+					for k1, v1 := range nodeConfig.Cmds {
 						arr := strings.Split(k1, "_")
 						if len(arr) != 2 {
 							continue
@@ -272,7 +275,7 @@ func InitNode(config *NodeConfig) {
 						if serviceName != arr[0] {
 							continue
 						}
-						service.Func = append(service.Func, &etcdapi.FunctionInfo{
+						service.Func = append(service.Func, &config.FunctionInfo{
 							Name: arr[1],
 							Cmd:  uint16(v1),
 						})
@@ -284,37 +287,27 @@ func InitNode(config *NodeConfig) {
 				return true
 			})
 
-			etcdapi.RegisterNode(NodeIntance.Config.Client, NodeIntance.Node)
-			log.Println("RegisterNode", config.Nodename, NodeIntance.Node.Address)
+			NodeIntance.IRegister.RegNode(NodeIntance.Node)
+			log.Println("RegisterNode", nodeConfig.Nodename, NodeIntance.Node.Address)
 		})
 
 		utils.Submit(func() {
 			// 拉去公共节点
-			nodes := etcdapi.GetAllRegisterNode(NodeIntance.Config.Client)
+			nodes, _ := NodeIntance.IRegister.QueryNodes()
 			for _, v := range nodes {
-				if v.Set != "" && v.Set != config.Set {
+				if v.Set != "" && v.Set != nodeConfig.Set {
 					continue
 				}
 				log.Println("Get All global Node", v.Name, v.Address)
-				connectNode(v)
-			}
-
-			// 拉去业务集合的其他节点信息
-			nodes = etcdapi.GetAllRegisterNode(NodeIntance.Config.Client)
-			for _, v := range nodes {
-				if v.Set != "" && v.Set != config.Set {
-					continue
-				}
-				log.Println("Get All set Node", v.Name, v.Address)
 				connectNode(v)
 			}
 		})
 	}
 
 	//
-	if config.HttpPort != 0 {
+	if nodeConfig.HttpPort != 0 {
 		go func() {
-			err := RunHttpGateway(config.HttpPort)
+			err := RunHttpGateway(nodeConfig.HttpPort)
 			if err != nil {
 				fmt.Println("listen error", err)
 				os.Exit(0)
@@ -345,7 +338,7 @@ func QueryNodeStatus() []*GxNodeConn {
 	NodeIntance.RpcClient.Range(func(key interface{}, value interface{}) bool {
 		nodeInfo := value.(*GxNodeConn)
 		cs = append(cs, &GxNodeConn{
-			Info: &etcdapi.NodeInfo{
+			Info: &config.NodeInfo{
 				Id:      nodeInfo.Info.Id,
 				Name:    nodeInfo.Info.Name,
 				Address: nodeInfo.Info.Address,
@@ -358,26 +351,26 @@ func QueryNodeStatus() []*GxNodeConn {
 	return cs
 }
 
-// WatchNodeRegister 收到节点数据更新
-func WatchNodeRegister(k, v string) {
-	if v == "" {
-		info, ok := NodeIntance.RpcClient.Load(k)
-		if ok {
-			nodeInfo := info.(*GxNodeConn)
-			if nodeInfo.Conn != nil {
-				nodeInfo.Conn.Close()
-			}
-			nodeInfo.Close = true
-			NodeIntance.RpcClient.Delete(k)
+// ConnectNewNode 尝试连接新节点
+func ConnectNewNode(name string) {
+	info, _ := NodeIntance.IRegister.QueryNode(name)
+	if info != nil && (info.Set == "" || info.Set == NodeIntance.Config.Set) {
+		connectNode(info)
+	}
+}
 
-			utils.Info("删除节点", "nodeName", k)
+// DisconnectNode 断开节点连接
+func DisconnectNode(name string) {
+	info, ok := NodeIntance.RpcClient.Load(name)
+	if ok {
+		nodeInfo := info.(*GxNodeConn)
+		if nodeInfo.Conn != nil {
+			nodeInfo.Conn.Close()
 		}
-	} else {
-		//如果不是自己set的节点，可能获取不到数据
-		info := etcdapi.GetRegisterNode(NodeIntance.Config.Client, k)
-		if info != nil && (info.Set == "" || info.Set == NodeIntance.Config.Set) {
-			connectNode(info)
-		}
+		nodeInfo.Close = true
+		NodeIntance.RpcClient.Delete(name)
+
+		utils.Info("删除节点", "nodeName", name)
 	}
 }
 

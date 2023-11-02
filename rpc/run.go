@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/jkkkls/hjing/config"
-	"github.com/jkkkls/hjing/etcdapi"
 	"github.com/jkkkls/hjing/utils"
 )
 
@@ -89,16 +88,18 @@ func (app *App) Run() {
 	}
 
 	//连接etcd
-	client, err := etcdapi.ConnEtcd(nodeConfig.Etcds...)
+	iRegister, err := NewEtcdRegister(nodeConfig.Etcds...)
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("初始化ETCD失败", err.Error())
 		return
 	}
-	// client.RegisterCallback(watch_config.NodeRegisterKey+":", rpc.WatchNodeRegister)
-	// if nodeConfig.Node.Set != "" {
-	// 	client.RegisterCallback(fmt.Sprintf("%v:%v", watch_config.NodeRegisterKey, nodeConfig.Node.Set), rpc.WatchNodeRegister)
-	// }
-	client.Start()
+	iRegister.WatchNode(func(key string, info *config.NodeInfo) {
+		if info == nil {
+			DisconnectNode(key)
+		} else {
+			ConnectNewNode(key)
+		}
+	})
 
 	for _, v := range app.services {
 		err = v(app)
@@ -110,8 +111,7 @@ func (app *App) Run() {
 
 	//rpc节点服务
 	// api.RegisterRpcCallBack()
-	InitNode(&NodeConfig{
-		Client:   client,
+	InitNode(iRegister, &NodeConfig{
 		Id:       nodeConfig.App.Id,
 		Nodename: nodeConfig.App.Name,
 		Nodetype: nodeConfig.App.Type,
