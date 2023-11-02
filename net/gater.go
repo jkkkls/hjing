@@ -168,8 +168,8 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 		conn.T.Reset(120 * time.Second)
 		//转发消息
 		cmd := msg.Cmd
-		nodeName := msg.NodeName
-		serverMethod := rpc.FindServiceMethod("", cmd)
+		nodeName := msg.NodeName //有时候需要转发到指定节点，可以在消息中间件中设置
+		serverMethod := rpc.FindServiceMethod(cmd)
 		if serverMethod != "" {
 			f := func() {
 				var (

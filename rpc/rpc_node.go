@@ -41,7 +41,7 @@ type NodeConfig struct {
 	Host     string           //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
 	Port     int              //节点rpc端口
 	Region   uint32           //地区
-	Cmds     map[string]int32 //节点支持cmd的，需要使用protobuf定义的cmd
+	Cmds     map[int32]string //节点支持cmd的，需要使用protobuf定义的cmd
 	HttpPort int              //节点http端口
 }
 
@@ -64,8 +64,7 @@ type GxNode struct {
 
 	// EtcdCli *etcdapi.EtcdCli //watch客户端
 
-	RpcClient  sync.Map //到其他节点的连接
-	CmdService sync.Map //消息对应服务名
+	RpcClient sync.Map //到其他节点的连接
 
 	// ServiceNode sync.Map               //服务对应节点名
 	Mutex       sync.Mutex
@@ -137,23 +136,16 @@ func connectNode(info *config.NodeInfo) {
 
 	NodeIntance.Mutex.Lock()
 	//保存节点的所有服务，可能多个节点都有同一个服务
-	for i := 0; i < len(info.Service); i++ {
-		server := info.Service[i]
-		s, ok := NodeIntance.ServiceNode[server.Name]
+	for i := 0; i < len(info.Services); i++ {
+		name := info.Services[i]
+		s, ok := NodeIntance.ServiceNode[name]
 		if ok {
 			s[info.Name] = true
 		} else {
 			s1 := make(map[string]bool)
 			s1[info.Name] = true
-			NodeIntance.ServiceNode[server.Name] = s1
+			NodeIntance.ServiceNode[name] = s1
 		}
-
-		for j := 0; j < len(server.Func); j++ {
-			// NodeIntance.CmdService.Store(server.Func[j].Cmd, fmt.Sprintf("%v.%v", info.Name, server.Func[j].Name))
-			// AddServiceMethod(uint32(server.Func[j].Cmd), fmt.Sprintf("%v.%v", server.Name, server.Func[j].Name))
-			AddServiceMethod(info.Name, info.Type, server.Func[j].Cmd, fmt.Sprintf("%v.%v", server.Name, server.Func[j].Name))
-		}
-
 	}
 	NodeIntance.Mutex.Unlock()
 
@@ -214,6 +206,13 @@ func RegisterRpcCallBack(cb RpcCallBack) {
 func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 	utils.Info("初始化服务节点", "id", nodeConfig.Id, "name", nodeConfig.Nodename, "host", nodeConfig.Host, "port", nodeConfig.Port, "region", nodeConfig.Region)
 
+	//处理cmd
+	newCmds := make(map[int32]string)
+	for k, v := range nodeConfig.Cmds {
+		newCmds[k] = strings.Replace(v, "_", ".", 1)
+	}
+	nodeConfig.Cmds = newCmds
+
 	NodeIntance.Config = nodeConfig
 	NodeIntance.ExitTime = 1
 	NodeIntance.ServiceNode = make(map[string]map[string]bool)
@@ -247,62 +246,25 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 		Set:     nodeConfig.Set,
 	}
 
-	if NodeIntance.IRegister != nil {
-		// 注册节点信息
-		utils.Submit(func() {
-			NodeIntance.Services.Range(func(key, value interface{}) bool {
-				serviceName := key.(string)
-				utils.Info("初始化服务", "name", serviceName)
-				service := &config.ServiceInfo{
-					Name: serviceName,
-				}
-				if len(nodeConfig.Cmds) == 0 {
-					funcs := utils.ExportServiceFunction(value)
-					for k1, v1 := range funcs {
-						// 	serviceName, k1, v1)
-						service.Func = append(service.Func, &config.FunctionInfo{
-							Name: v1,
-							Cmd:  k1,
-						})
-						AddServiceMethod(NodeIntance.Config.Nodename, NodeIntance.Node.Type, k1, fmt.Sprintf("%v.%v", service.Name, v1))
-					}
-				} else {
-					for k1, v1 := range nodeConfig.Cmds {
-						arr := strings.Split(k1, "_")
-						if len(arr) != 2 {
-							continue
-						}
-						if serviceName != arr[0] {
-							continue
-						}
-						service.Func = append(service.Func, &config.FunctionInfo{
-							Name: arr[1],
-							Cmd:  uint16(v1),
-						})
-						AddServiceMethod(NodeIntance.Config.Nodename, NodeIntance.Node.Type, uint16(v1), fmt.Sprintf("%v.%v", service.Name, arr[1]))
-					}
-				}
+	// 注册节点信息
+	NodeIntance.Services.Range(func(key, value interface{}) bool {
+		NodeIntance.Node.Services = append(NodeIntance.Node.Services, key.(string))
+		return true
+	})
+	NodeIntance.IRegister.RegNode(NodeIntance.Node)
+	log.Println("RegisterNode", nodeConfig.Nodename, NodeIntance.Node.Address, NodeIntance.Node.Services)
 
-				NodeIntance.Node.Service = append(NodeIntance.Node.Service, service)
-				return true
-			})
-
-			NodeIntance.IRegister.RegNode(NodeIntance.Node)
-			log.Println("RegisterNode", nodeConfig.Nodename, NodeIntance.Node.Address)
-		})
-
-		utils.Submit(func() {
-			// 拉去公共节点
-			nodes, _ := NodeIntance.IRegister.QueryNodes()
-			for _, v := range nodes {
-				if v.Set != "" && v.Set != nodeConfig.Set {
-					continue
-				}
-				log.Println("Get All global Node", v.Name, v.Address)
-				connectNode(v)
+	utils.Submit(func() {
+		// 拉去公共节点
+		nodes, _ := NodeIntance.IRegister.QueryNodes()
+		for _, v := range nodes {
+			if v.Set != "" && v.Set != nodeConfig.Set {
+				continue
 			}
-		})
-	}
+			log.Println("Get All global Node", v.Name, v.Address)
+			connectNode(v)
+		}
+	})
 
 	//
 	if nodeConfig.HttpPort != 0 {
@@ -439,26 +401,6 @@ func GetNode(nodeName string) *Client {
 	defer NodeIntance.Mutex.Unlock()
 
 	return getNode(nodeName)
-}
-
-// AddServiceMethod 注册服务方法
-func AddServiceMethod(nodeName string, nodeType string, cmd uint16, serviceMethod string) {
-	key := fmt.Sprintf("%v.%v", nodeType, cmd)
-	NodeIntance.CmdService.Store(key, serviceMethod)
-	if nodeName == NodeIntance.Config.Nodename {
-		log.Println("注册对外接口", "nodeName:", nodeName, "key:", key, "serviceMethod:", serviceMethod)
-	}
-	NodeIntance.CmdService.Store(fmt.Sprintf(".%v", cmd), serviceMethod)
-}
-
-// FindServiceMethod 查询服务方法
-func FindServiceMethod(nodeType string, cmd uint16) string {
-	i, ok := NodeIntance.CmdService.Load(fmt.Sprintf("%v.%v", nodeType, cmd))
-	if !ok {
-		return ""
-	}
-
-	return i.(string)
 }
 
 // RegisterService 注册服务
@@ -966,4 +908,14 @@ func SubmitEvent(serviceName, eventName string, args ...interface{}) {
 		})
 		return true
 	})
+}
+
+// FindServiceMethod 查询服务方法
+func FindServiceMethod(cmd uint16) string {
+	i, ok := NodeIntance.Config.Cmds[int32(cmd)]
+	if !ok {
+		return ""
+	}
+
+	return i
 }
