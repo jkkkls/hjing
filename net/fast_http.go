@@ -12,7 +12,17 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func getRemote2(ctx *routing.Context) string {
+type MiddleFunc func(*routing.Context) error
+
+var (
+	ApiMiddleFunc MiddleFunc
+)
+
+func RegisterApiMiddleFunc(f MiddleFunc) {
+	ApiMiddleFunc = f
+}
+
+func getFastRemote(ctx *routing.Context) string {
 	ip := string(ctx.Request.Header.Peek("x-forwarded-for"))
 	if ip != "" && ip != "unknown" {
 		ip = strings.Split(ip, ",")[0]
@@ -23,36 +33,48 @@ func getRemote2(ctx *routing.Context) string {
 	return ip
 }
 
-func RunApiHttp2(port int, dev bool) error {
+type HttpParam func(*routing.Router)
+
+func RunApiHttp(port int, params ...HttpParam) error {
 	router := routing.New()
+
+	for _, v := range params {
+		v(router)
+	}
 
 	router.Options("/*", func(ctx *routing.Context) error {
 		return nil
 	})
-	router.Post("/*", ProtectedHandler2)
-	if dev {
-		router.Get("/*", ProtectedHandler2)
-	}
+
+	//api
+	api := router.Group("/api")
+	api.Use(func(ctx *routing.Context) error {
+		if ApiMiddleFunc != nil {
+			return ApiMiddleFunc(ctx)
+		}
+		return nil
+	})
+	api.Post("/*", ProtectedHandler)
+
 	utils.Info("启动api2服务器", "port", port)
 
 	return fasthttp.ListenAndServe(fmt.Sprintf(":%v", port), router.HandleRequest)
 }
 
 // ProtectedHandler2 入口
-func ProtectedHandler2(ctx *routing.Context) error {
+func ProtectedHandler(ctx *routing.Context) error {
 	ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
 	ctx.Response.Header.Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Authorization, Accept, X-Requested-With")
 
 	urlStr := string(ctx.Path())
-	remote := getRemote2(ctx)
+	remote := getFastRemote(ctx)
 	arr := strings.Split(urlStr, "/")
 	if len(arr) != 4 || arr[1] != "api" {
 		JsonResponse2(ctx, map[string]interface{}{
 			"code":    1,
 			"codeMsg": "请求地址格式错误",
 		})
-		// utils.Info("登陆请求地址格式错误", "url", urlStr)
 		return nil
 	}
 

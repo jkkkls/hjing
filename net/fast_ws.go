@@ -46,21 +46,10 @@ func (s *WsConn2) SetWriteDeadline(t time.Time) error {
 	return s.Conn.SetWriteDeadline(t)
 }
 
-func RunWSServer2(port int) error {
+func RunWSServer(port int) error {
 	utils.Info("启动websocket", "port", port)
-	http.HandleFunc("/ws", HandleWebsocket2)
+	http.HandleFunc("/ws", HandleWebsocket)
 	err := http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func RunWSSServer2(port int, crtFile, keyFile string) error {
-	utils.Info("启动websocket2 ssl", "port", port)
-	http.HandleFunc("/wss", HandleWebsocket2)
-	err := http.ListenAndServeTLS(fmt.Sprintf(":%v", port), crtFile, keyFile, nil)
 	if err != nil {
 		return err
 	}
@@ -79,7 +68,7 @@ var upgrader2 = websocket.Upgrader{
 }
 
 // HandleWebsocket websocket新连接回调
-func HandleWebsocket2(w http.ResponseWriter, r *http.Request) {
+func HandleWebsocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader2.Upgrade(w, r, nil)
 	if err != nil {
 		return

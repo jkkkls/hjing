@@ -41,7 +41,11 @@ hjing add-app <AppName>
 hjing add-svc <AppName> <ServiceName>
 
 # 添加模版接口到指定服务中
-hjing add-itf <ServiceName> <interfaceName>
+hjing add-itf <ServiceName> <interfaceName> --open
+
+# 添加HTTP网关模版到应用中
+hjing add-gate <AppName>
+
 
 # 添加网关模版到应用中
 hjing add-kcp-gate <AppName>

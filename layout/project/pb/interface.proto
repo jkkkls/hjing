@@ -1,0 +1,9 @@
+syntax = "proto3";
+package common;  // 声明所在包
+option go_package = "{{domain}}/pb";
+
+
+// 接口命令
+enum InterfaceCmd {
+    InterfaceCmd_Begin = 0;
+}

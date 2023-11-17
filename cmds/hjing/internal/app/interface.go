@@ -29,6 +29,7 @@ var CmdAddItf = &cobra.Command{
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
+		open := cmd.Flag("open").Value.String() == "true"
 		svcName := args[0]
 		itfName := args[1]
 		upSvcName := strings.ToUpper(svcName[:1]) + svcName[1:]
@@ -92,6 +93,10 @@ message %vRsp {}
 			return
 		}
 
+		//生成网关定义
+		if open {
+		}
+
 		//生成接口
 		svcContent := fmt.Sprintf(`func (service *%vService) %v(context *rpc.Context, req *pb.%vReq, rsp *pb.%vRsp) (ret uint16, err error) {
 	return
@@ -109,4 +114,8 @@ message %vRsp {}
 
 		color.Green("create interface[%v] for %v success", itfName, svcName)
 	},
+}
+
+func init() {
+	CmdAddItf.PersistentFlags().Bool("open", false, "是否允许通过网关访问")
 }
