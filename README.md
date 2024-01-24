@@ -65,3 +65,8 @@ cd build
 ./<projectName>
 
 ```
+
+## 项目目录结构
+
+web/front 管理后台前端
+web/admin 后台前端
