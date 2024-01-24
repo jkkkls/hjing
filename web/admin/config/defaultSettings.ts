@@ -12,7 +12,7 @@ const Settings: LayoutSettings & {
   pwa: false,
   logo: "/logo.svg",
   splitMenus: false,
-  title: "高歌中台系统",
+  title: "中台系统",
 };
 
 export default Settings;
