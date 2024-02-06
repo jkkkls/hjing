@@ -1,0 +1,5 @@
+db:
+  type: mysql
+  dsn: root:ghb.com123@tcp(127.0.0.1:3306)/?charset=utf8mb4&parseTime=True&loc=Local
+net:
+  address: :9095
