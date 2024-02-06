@@ -115,6 +115,8 @@ app:
   host: 127.0.0.1
   port: 10002
   type: data
+#修改gate.yaml，增加内网http端口
+
 
 # 编译data和gate
 ➜  test_app -> make data
@@ -198,7 +200,7 @@ message SetRsp {
 
 4. 重新编译协议文件
 ``` shell
-make pb
+➜  test_app -> make pb
 ```
 
 5. 添加接口实现[services/db/service.go]
@@ -238,4 +240,25 @@ func (service *DbService) Set(context *rpc.Context, req *pb.SetReq, rsp *pb.SetR
 	return
 }
 
+```
+
+6. 重新编译gate和data。依次启动etcd、gate和data. 通过http请求验证接口是否正常。
+``` shell
+➜  test_app -> curl -i -X POST -d '{"key":"a", "value":"b"}' 'http://127.0.0.1:8081/rpcapi/db/set'
+HTTP/1.1 200 OK
+Server: fasthttp
+Date: Tue, 06 Feb 2024 09:48:56 GMT
+Content-Type: application/json
+Content-Length: 2
+
+{}
+
+➜  test_app -> curl -i -X POST -d '{"key":"a"}' 'http://127.0.0.1:8081/rpcapi/db/get'
+HTTP/1.1 200 OK
+Server: fasthttp
+Date: Tue, 06 Feb 2024 09:48:32 GMT
+Content-Type: application/json
+Content-Length: 13
+
+{"value":"b"}
 ```

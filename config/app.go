@@ -16,6 +16,7 @@ type App struct {
 	Type      string `yaml:"type"`
 	PprofAddr string `yaml:"pprofAddr"` //"0.0.0.0:9061"
 	Pro       bool   `yaml:"pro"`
+	HttpPort  int    `yaml:"httpPort"` //内部Http端口
 
 	Version   string
 	GitSHA    string

@@ -121,6 +121,6 @@ func (app *App) Run() {
 		Host:     nodeConfig.App.Host,
 		Port:     nodeConfig.App.Port,
 		// Cmds:     pb.RequestCmd_value,
-		// HttpPort: nodeConfig.App.HttpPort,
+		HttpPort: nodeConfig.App.HttpPort,
 	})
 }
