@@ -68,5 +68,5 @@ cd build
 
 ## 项目目录结构
 
-web/front 管理后台前端
-web/admin 后台前端
+web/front 落地页前端
+web/axjmin 后台前后端
