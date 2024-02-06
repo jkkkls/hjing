@@ -76,7 +76,8 @@ var CmdAddItf = &cobra.Command{
 		//生成协议
 		newContent := fmt.Sprintf(`message %vReq {}
 message %vRsp {}
-			`, upItfName, upItfName)
+
+`, upItfName, upItfName)
 
 		buff = append(buff, []byte(newContent)...)
 		err = os.WriteFile(protoName, buff, os.ModePerm)
@@ -109,8 +110,18 @@ message %vRsp {}
 			color.Red(err.Error())
 			return
 		}
+
+		pbStr := fmt.Sprintf(`"%v/pb"`, domain)
+		if !strings.Contains(newBuff, pbStr) {
+			newBuff = strings.Replace(newBuff, `import "github.com/jkkkls/hjing/rpc"`, fmt.Sprintf(`import (
+				"github.com/jkkkls/hjing/rpc"
+			%v
+			)`, pbStr), 1)
+		}
+
 		os.WriteFile(svcFileName, []byte(newBuff), 0644)
-		// utils.ExecCmd("", "go", "fmt", svcFileName)
+
+		utils.ExecCmd("", "go", "fmt", svcFileName)
 
 		color.Green("create interface[%v] for %v success", itfName, svcName)
 	},
