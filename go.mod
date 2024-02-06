@@ -3,7 +3,6 @@ module github.com/jkkkls/hjing
 go 1.21.3
 
 require (
-	github.com/boltdb/bolt v1.3.1
 	github.com/fasthttp/websocket v1.5.6
 	github.com/fatih/color v1.15.0
 	github.com/fsnotify/fsnotify v1.7.0
