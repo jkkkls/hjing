@@ -7,9 +7,9 @@ import (
 )
 
 var cmd = &cobra.Command{
-	Use:     "Hjing",
-	Short:   "Hjing: An simple toolkit for Go microservices.",
-	Long:    `Hjing: An simple toolkit for Go microservices.`,
+	Use:     "hjing",
+	Short:   "hjing: An simple toolkit for Go microservices.",
+	Long:    `hjing: An simple toolkit for Go microservices.`,
 	Version: version,
 }
 

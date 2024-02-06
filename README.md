@@ -94,15 +94,15 @@ yarn start:no-mock
 
 ``` shell
 # 创建项目
-➜  hjing_space hjing/cmds/hjing/hjing new github.com/jkkkls/test_app
+➜  hjing_space -> hjing new github.com/jkkkls/test_app
 create project[github.com/jkkkls/test_app] success
 
-➜  hjing_space cd test_app
+➜  hjing_space -> cd test_app
 # 添加网关应用, 之后记住修改gate.yaml的节点端口
-➜  test_app ../hjing/cmds/hjing/hjing add-app gate
+➜  test_app -> hjing add-app gate
 create app[gate] success
 # 添加数据应用, 之后记住修改data.yaml的节点端口
-➜  test_app ../hjing/cmds/hjing/hjing add-app data
+➜  test_app -> hjing add-app data
 create app[data] success
 
 #修改data.yaml的节点端口和id
@@ -115,17 +115,20 @@ app:
   type: data
 
 # 编译data和gate
-➜  test_app make data
+➜  test_app -> make data
 fatal: not a git repository (or any of the parent directories): .git
 编译data完成
-➜  test_app make gate
+➜  test_app -> make gate
 fatal: not a git repository (or any of the parent directories): .git
 编译gate完成
 
 #1. 启动etcd
 cd etcd
 ./etcd
+
 #2. 启动data应用
+➜  test_app -> cd build
+➜  build -> ./data
 Version      : 2000.01.01.release
 Git SHA      : xxx
 Build PC     : anyone
@@ -134,7 +137,11 @@ Build Area   :
 2024-02-06 13:07:33.558153 INFO rpc_node.go:207 初始化服务节点 [id=1 name=data host=127.0.0.1 port=10001 region=0]
 2024/02/06 13:07:33 RegisterNode data 127.0.0.1:10001 []
 2024/02/06 13:07:33 Get All global Node data 127.0.0.1:10001
+2024-02-06 13:08:48.054986 INFO rpc_node.go:133 连接节点成功 [name=gate address=127.0.0.1:10001 region=0 isClose=false]
+
 #3. 启动gate应用
+➜  test_app -> cd build
+➜  build -> ./gate
 Version      : 2000.01.01.release
 Git SHA      : xxx
 Build PC     : anyone
@@ -145,7 +152,5 @@ Build Area   :
 2024/02/06 13:08:48 Get All global Node data 127.0.0.1:10002
 2024/02/06 13:08:48 Get All global Node gate 127.0.0.1:10001
 2024-02-06 13:08:48.054966 INFO rpc_node.go:133 连接节点成功 [name=data address=127.0.0.1:10002 region=0 isClose=false]
-4. 启动后data的日志
-2024-02-06 13:08:48.054986 INFO rpc_node.go:133 连接节点成功 [name=gate address=127.0.0.1:10001 region=0 isClose=false]
 
 ```
