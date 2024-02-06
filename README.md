@@ -68,5 +68,24 @@ cd build
 
 ## 项目目录结构
 
-web/front 落地页前端
-web/axjmin 后台前后端
+- web/front 落地页前端
+```
+yarn install
+yarn dev
+```
+
+
+- web/axjmin 后台前后端
+```
+# 启动后端
+# 先配置server.yaml的mysql
+# 默认账号密码admin123/admin123
+cd web/axjmin/backend
+go build
+./webserver
+
+# 启动前端
+cd web/axjmin/frontend
+yarn install
+yarn start:no-mock
+```
