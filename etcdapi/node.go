@@ -46,6 +46,7 @@ func GetRegisterNode(client *EtcdCli, nodeName string) *config.NodeInfo {
 	if value == "" || err != nil {
 		return nil
 	}
+
 	info := &config.NodeInfo{}
 	json.Unmarshal([]byte(value), info)
 	return info

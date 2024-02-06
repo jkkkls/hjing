@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/jkkkls/hjing/config"
 	"github.com/jkkkls/hjing/utils"
@@ -94,10 +95,12 @@ func (app *App) Run() {
 		return
 	}
 	iRegister.WatchNode(func(key string, info *config.NodeInfo) {
+		arr := strings.Split(key, ":")
+		name := arr[len(arr)-1]
 		if info == nil {
-			DisconnectNode(key)
+			DisconnectNode(name)
 		} else {
-			ConnectNewNode(key)
+			ConnectNewNode(name)
 		}
 	})
 
