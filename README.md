@@ -89,3 +89,23 @@ cd web/axjmin/frontend
 yarn install
 yarn start:no-mock
 ```
+
+## 实例
+
+``` shell
+# 创建项目
+➜  hjing_space hjing/cmds/hjing/hjing new github.com/jkkkls/test_app
+create project[github.com/jkkkls/test_app] success
+
+➜  hjing_space cd test_app
+# 添加网关应用, 之后记住修改gate.yaml的节点端口
+➜  test_app ../hjing/cmds/hjing/hjing add-app gate
+create app[gate] success
+# 添加数据应用, 之后记住修改data.yaml的节点端口
+➜  test_app ../hjing/cmds/hjing/hjing add-app data
+create app[data] success
+
+
+
+
+```

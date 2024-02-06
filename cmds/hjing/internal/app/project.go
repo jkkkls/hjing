@@ -21,7 +21,7 @@ var CmdNew = &cobra.Command{
 			return fmt.Errorf("requires 2 args, example: hjing add-app <[<projectName> | <domainName>]")
 		}
 
-		if !isValidAppName(args[0]) {
+		if !isValidDiomainName(args[0]) {
 			return fmt.Errorf("name is invalid")
 		}
 		return nil

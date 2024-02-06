@@ -213,6 +213,7 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 	}
 	nodeConfig.Cmds = newCmds
 
+	NodeIntance.IRegister = iRegisetr
 	NodeIntance.Config = nodeConfig
 	NodeIntance.ExitTime = 1
 	NodeIntance.ServiceNode = make(map[string]map[string]bool)

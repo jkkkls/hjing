@@ -13,19 +13,17 @@ GOGET=$(GOCMD) get
 
 all: pb build
 
-.PHONY:pb 
+.PHONY: pb
 
 
-game:
-	@$(GOBUILD) -o build/apps/game card_server/apps/game
-	@cp libs/node_config/guangbo/game0.toml ./build/apps/
-	@echo "编译game完成"
+#pb tag
 pb:
 	@protoc -I. --gogu_out ./ --gogu_opt paths=source_relative ./pb/*.proto
 	@$(GOCMD) fmt ./pb/*.go
 	@echo "编协议文件完成"
 
-build: game
+#build tag
+build:
 build_all: build
 test:
 	@$(GOTEST) -v ./...
