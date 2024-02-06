@@ -92,6 +92,8 @@ yarn start:no-mock
 
 ## 示例
 
+1. 创建项目
+
 ``` shell
 # 创建项目
 ➜  hjing_space -> hjing new github.com/jkkkls/test_app
@@ -152,5 +154,88 @@ Build Area   :
 2024/02/06 13:08:48 Get All global Node data 127.0.0.1:10002
 2024/02/06 13:08:48 Get All global Node gate 127.0.0.1:10001
 2024-02-06 13:08:48.054966 INFO rpc_node.go:133 连接节点成功 [name=data address=127.0.0.1:10002 region=0 isClose=false]
+
+```
+
+2. 添加服务
+
+``` shell
+# 添加数据库服务到data应用中
+➜  test_app -> hjing add-svc data db
+create service[db] success
+
+# 添加两个接口到db服务中
+➜  test_app -> hjing  add-itf db get --open
+create interface[get] for db success
+➜  test_app -> hjing  add-itf db set --open
+create interface[set] for db success
+```
+
+3. 完善协议文件[pb/db.proto]
+
+``` 
+syntax = "proto3";
+package pb;  // 声明所在包
+option go_package = "github.com/jkkkls/test_app/pb";
+//import "libs/pb/cli_common.proto";
+
+message GetReq {
+	string key = 1;
+}
+message GetRsp {
+	string value = 1;
+}
+
+message SetReq {
+	string key = 1;
+	string value = 2;
+}
+message SetRsp {
+	bool ok = 1;
+}
+			
+```
+
+4. 重新编译协议文件
+``` shell
+make pb
+```
+
+5. 添加接口实现[services/db/service.go]
+
+``` go
+package db
+
+import (
+	"github.com/jkkkls/hjing/rpc"
+	"github.com/jkkkls/test_app/pb"
+)
+
+// DbService 服务
+type DbService struct {
+	kvs map[string]string
+}
+
+func (service *DbService) NodeConn(name string)                  {}
+func (service *DbService) NodeClose(name string)                 {}
+func (service *DbService) OnEvent(eventName string, args ...any) {}
+
+// Exit 退出处理
+func (service *DbService) Exit() {}
+
+// Run 服务启动函数
+func (service *DbService) Run() error {
+	service.kvs = make(map[string]string)
+	return nil
+}
+
+func (service *DbService) Get(context *rpc.Context, req *pb.GetReq, rsp *pb.GetRsp) (ret uint16, err error) {
+	rsp.Value = service.kvs[req.Key]
+	return
+}
+func (service *DbService) Set(context *rpc.Context, req *pb.SetReq, rsp *pb.SetRsp) (ret uint16, err error) {
+	service.kvs[req.Key] = req.Value
+	return
+}
 
 ```
