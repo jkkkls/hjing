@@ -68,27 +68,10 @@ cd build
 
 ## 项目目录结构
 
-- web/front 落地页前端
-```
-yarn install
-yarn dev
-```
+- web/front 落地页前端[https://github.com/jkkkls/Landing.git]
 
+- web/axjmin 后台前后端[https://github.com/jkkkls/axjmin.git]
 
-- web/axjmin 后台前后端
-```
-# 启动后端
-# 先配置server.yaml的mysql
-# 默认账号密码admin123/admin123
-cd web/axjmin/backend
-go build
-./webserver
-
-# 启动前端
-cd web/axjmin/frontend
-yarn install
-yarn start:no-mock
-```
 
 ## 示例
 
@@ -175,7 +158,7 @@ create interface[set] for db success
 
 3. 完善协议文件[pb/db.proto]
 
-``` 
+```
 syntax = "proto3";
 package pb;  // 声明所在包
 option go_package = "github.com/jkkkls/test_app/pb";
@@ -195,7 +178,7 @@ message SetReq {
 message SetRsp {
 	bool ok = 1;
 }
-			
+
 ```
 
 4. 重新编译协议文件

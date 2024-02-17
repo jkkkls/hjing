@@ -1,6 +1,0 @@
-
-.DS_Store
-web.pid
-backend/tmp
-backend/test/mysql/mysql
-webserver
