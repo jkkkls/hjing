@@ -68,10 +68,9 @@ cd build
 
 ## 项目目录结构
 
-- web/front 落地页前端[https://github.com/jkkkls/Landing.git]
+- web/front [落地页前端](https://github.com/jkkkls/Landing.git)
 
-- web/axjmin 后台前后端[https://github.com/jkkkls/axjmin.git]
-
+- web/axjmin [后台前后端](https://github.com/jkkkls/axjmin.git)
 
 ## 示例
 
