@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/jkkkls/hjing/cmds/xlsx2proto/sync_conf"
+	"github.com/jkkkls/hjing/utils"
 )
 
 type Field struct {
@@ -49,6 +51,13 @@ func main() {
 	}
 
 	os.WriteFile(*outDir, buff, 0o644)
+
+	newBuff, err := utils.ExecCmd("", "gofmt", *outDir)
+	if err != nil {
+		color.Red(err.Error())
+		return
+	}
+	os.WriteFile(*outDir, []byte(newBuff), 0o644)
 }
 
 func exportJson() {

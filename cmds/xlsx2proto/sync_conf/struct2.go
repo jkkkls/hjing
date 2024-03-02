@@ -59,7 +59,7 @@ func exportXLSX2Proto(file, name, comment string) ([]byte, error) {
 		return nil, errors.Wrap(err, fmt.Sprintf("file: %v", file))
 	}
 
-	return exportSheet2Proto(file, name, comment, 0, f)
+	return exportSheet2Proto(name, comment, 0, f)
 }
 
 var typeMap = map[string]string{
@@ -71,7 +71,7 @@ var typeMap = map[string]string{
 	"[][]str": "[][]string",
 }
 
-func exportSheet2Proto(file, sname, comment string, sheetIndex int, f *excelize.File) ([]byte, error) {
+func exportSheet2Proto(sname, comment string, sheetIndex int, f *excelize.File) ([]byte, error) {
 	upName := utils.CloseString(sname)
 
 	var buffer bytes.Buffer
