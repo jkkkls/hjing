@@ -5,7 +5,6 @@
 # 计划列表
 
 - [ ] 微服务逻辑重构
-- [ ] 配置表模块
 - [ ] 埋点模块，写入数据库，测试Risingwave
 - [ ] 测试postgresql分区表功能
 
@@ -23,6 +22,9 @@ go install golang.org/x/tools/cmd/goimports@latest
 
 # 安装项目工具hjing
 go install github.com/jkkkls/hjing/cmds/hjing@latest
+
+# 安装配置表工具xlsx2proto
+go install github.com/jkkkls/hjing/cmds/xlsx2proto@latest
 ```
 
 ## 创建一个项目

@@ -1,8 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"log"
+	"os"
 	"regexp"
+
+	"github.com/gookit/goutil/dump"
+	"github.com/jkkkls/hjing/cmds/xlsx2proto/examples"
 )
 
 func isValidDiomainName(appName string) bool {
@@ -11,6 +16,11 @@ func isValidDiomainName(appName string) bool {
 }
 
 func main() {
-	str := "qqqq.co-m/123/aa"
-	log.Println(isValidDiomainName(str))
+	buff, _ := os.ReadFile("../../cmds/xlsx2proto/examples/config.json")
+
+	x := &examples.Configs{}
+
+	err := json.Unmarshal(buff, x)
+	log.Println(err)
+	dump.Println(x)
 }
