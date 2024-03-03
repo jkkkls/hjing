@@ -33,8 +33,8 @@ type CallInfo struct {
 	Done          chan *CallInfo // Strobes when call is complete.
 	Raw           int            // 是否字节流调用.0-否 1-是 2-json
 	Ret           uint16         // 返回值
-	Conn          *Context       //连接信息
-	NoResp        bool           //是否不需要回复
+	Conn          *Context       // 连接信息
+	NoResp        bool           // 是否不需要回复
 }
 
 type ClientOption func(*Client)
@@ -57,6 +57,7 @@ func WithTimeout(t int) ClientOption {
 // with a single Client, and a Client may be used by
 // multiple goroutines simultaneously.
 type Client struct {
+	Id    int
 	codec ClientCodec
 
 	// reqMutex sync.Mutex // protects following
@@ -122,7 +123,7 @@ func (client *Client) send(call *CallInfo) {
 	if call.Raw == 0 {
 		err = client.codec.WriteRequest(request, call.Args)
 	} else {
-		//包括 byte和json格式
+		// 包括 byte和json格式
 		err = client.codec.WriteByteRequest(request, call.Args.([]byte))
 	}
 
@@ -183,7 +184,7 @@ func (client *Client) input() {
 			if call.Raw == 0 {
 				err = client.codec.ReadResponseBody(int32(call.Raw), call.Reply)
 			} else {
-				//包括 byte和json格式
+				// 包括 byte和json格式
 				call.Reply, err = client.codec.ReadByteResponseBody()
 			}
 			if err != nil {

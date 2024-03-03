@@ -101,6 +101,7 @@ app:
 
 
 # 编译data和gate
+➜  test_app -> go mod tidy
 ➜  test_app -> make data
 fatal: not a git repository (or any of the parent directories): .git
 编译data完成
@@ -149,9 +150,9 @@ Build Area   :
 create service[db] success
 
 # 添加两个接口到db服务中
-➜  test_app -> hjing  add-itf db get --open
+➜  test_app -> hjing  add-itf db get
 create interface[get] for db success
-➜  test_app -> hjing  add-itf db set --open
+➜  test_app -> hjing  add-itf db set
 create interface[set] for db success
 ```
 
@@ -226,6 +227,26 @@ func (service *DbService) Set(context *rpc.Context, req *pb.SetReq, rsp *pb.SetR
 
 6. 重新编译gate和data。依次启动etcd、gate和data. 通过http请求验证接口是否正常。
 ``` shell
+# gate.yaml新增rpcapi配置
+app:
+  id: 1
+  name: gate
+  desc: gate
+  host: 127.0.0.1
+  port: 10001
+  type: gate
+  httpPort: 8081
+log:
+  level: 0
+  dir: ./log
+  screen: true
+etcds:
+  - 127.0.0.1:2379
+```
+
+
+``` shell
+# 通过gate的rpcapi接口调用data的db服务
 ➜  test_app -> curl -i -X POST -d '{"key":"a", "value":"b"}' 'http://127.0.0.1:8081/rpcapi/db/set'
 HTTP/1.1 200 OK
 Server: fasthttp

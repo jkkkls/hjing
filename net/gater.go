@@ -13,31 +13,31 @@ import (
 )
 
 type Gater struct {
-	Id        int
-	IDCounter uint64 //连接id
-	SyncCall  bool
-	Count     int32
-	Ids       utils.Map[uint64, *ClientConn]
-	ICode     ICode
+	Id         int
+	IDCounter  uint64 // 连接id
+	SyncCall   bool
+	Count      int32
+	Ids        utils.Map[uint64, *ClientConn]
+	ICode      ICode
+	NodeConfig *rpc.NodeConfig
 
-	NewFuncs []InterceptorNewFunc //新连接拦截器列表
-	ReqFuncs []InterceptorReqFunc //新消息拦截器列表
-	RspFuncs []InterceptorRspFunc //服务端回复拦截器列表
-	DelFuncs []InterceptorNewFunc //连接断开拦截器列表
+	NewFuncs []InterceptorNewFunc // 新连接拦截器列表
+	ReqFuncs []InterceptorReqFunc // 新消息拦截器列表
+	RspFuncs []InterceptorRspFunc // 服务端回复拦截器列表
+	DelFuncs []InterceptorNewFunc // 连接断开拦截器列表
 }
 
 type GaterOption func(*Gater)
 
-var (
-	gater *Gater
-)
+var gater *Gater
 
 // NewGater 初始化网关
 func NewGater(syncCall bool, icode ICode, options ...GaterOption) *Gater {
 	gater = &Gater{
-		IDCounter: 1,
-		SyncCall:  syncCall,
-		ICode:     icode,
+		IDCounter:  1,
+		SyncCall:   syncCall,
+		ICode:      icode,
+		NodeConfig: rpc.GetNodeConfig(),
 	}
 
 	for _, o := range options {
@@ -70,7 +70,7 @@ func (g *Gater) RegisterDelFuncs(f InterceptorNewFunc) {
 func (g *Gater) newID() uint64 {
 	for {
 		id := atomic.AddUint64(&g.IDCounter, 1)
-		id = id&0xFFFFFFFF | (rpc.NodeIntance.Config.Id&0xFFFF)<<32
+		id = id&0xFFFFFFFF | (g.NodeConfig.Id&0xFFFF)<<32
 		if _, ok := g.Ids.Load(id); !ok {
 			return id
 		}
@@ -94,7 +94,7 @@ func (g *Gater) NewClientConn(remote string, rwc io.ReadWriteCloser) *ClientConn
 		Context: &rpc.Context{
 			Remote:   remote,
 			Id:       g.newID(),
-			GateName: rpc.NodeIntance.Config.Nodename,
+			GateName: g.NodeConfig.Nodename,
 		},
 	}
 
@@ -130,14 +130,14 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 	}()
 	utils.Trace("新连接", "remote", remote, "connType", connType, "id", conn.Context.Id)
 
-	//新连接拦截器
+	// 新连接拦截器
 	for _, v := range g.NewFuncs {
 		if _, err := v(conn); err != nil {
 			return
 		}
 	}
 
-	//连接心跳定时器
+	// 连接心跳定时器
 	utils.Submit(func() {
 		for range conn.T.C {
 			rwc.Close()
@@ -146,17 +146,17 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 		}
 	})
 
-	//读取数据逻辑
+	// 读取数据逻辑
 	for {
 	LOOP:
-		//读取消息
+		// 读取消息
 		msg, err := ReadMessage(r, g.ICode)
 		if err != nil {
 			utils.Debug("readMessage error", "remote", conn.Context.Remote, "error", err)
 			return
 		}
 
-		//新请求拦截器
+		// 新请求拦截器
 		for _, v := range g.ReqFuncs {
 			if ret, err := v(conn, msg); err != nil {
 				conn.SendMessage(g.ICode, ret)
@@ -164,11 +164,11 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 			}
 		}
 
-		//重置定时器
+		// 重置定时器
 		conn.T.Reset(120 * time.Second)
-		//转发消息
+		// 转发消息
 		cmd := msg.Cmd
-		nodeName := msg.NodeName //有时候需要转发到指定节点，可以在消息中间件中设置
+		nodeName := msg.NodeName // 有时候需要转发到指定节点，可以在消息中间件中设置
 		serverMethod := rpc.FindServiceMethod(cmd)
 		if serverMethod != "" {
 			f := func() {
@@ -198,7 +198,7 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 					ret = 1
 				}
 
-				//响应拦截器
+				// 响应拦截器
 				for _, v := range g.RspFuncs {
 					v(conn, msg, rspBuff, ret, retErr)
 				}

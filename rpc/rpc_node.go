@@ -9,6 +9,7 @@ package rpc
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net"
 	"os"
 	"os/signal"
@@ -29,26 +30,26 @@ type GxService interface {
 	Exit()
 	NodeConn(string)
 	NodeClose(string)
-	//服务事件接口
+	// 服务事件接口
 	OnEvent(string, ...interface{})
 }
 
 type NodeConfig struct {
-	Id       uint64           //节点id
-	Nodename string           //节点名称
-	Nodetype string           //节点类型，rpc调用时候可以根据类型调用
-	Set      string           //节点集名称，有时候需要对节点进行分组
-	Host     string           //节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
-	Port     int              //节点rpc端口
-	Region   uint32           //地区
-	Cmds     map[int32]string //节点支持cmd的，需要使用protobuf定义的cmd
-	HttpPort int              //节点http端口
+	Id       uint64           // 节点id
+	Nodename string           // 节点名称
+	Nodetype string           // 节点类型，rpc调用时候可以根据类型调用
+	Set      string           // 节点集名称，有时候需要对节点进行分组
+	Host     string           // 节点IP地址，需要提供内网地址，注册到Watch节点，以实现服务集群
+	Port     int              // 节点rpc端口
+	Region   uint32           // 地区
+	Cmds     map[int32]string // 节点支持cmd的，需要使用protobuf定义的cmd
+	HttpPort int              // 节点http端口
 }
 
 // GxNodeConn 微服务节点信息
 type GxNodeConn struct {
 	Info  *config.NodeInfo
-	Conn  *Client
+	Conns []*Client
 	Close bool
 }
 
@@ -59,28 +60,29 @@ type GxNode struct {
 	// Id       uint64   //自己的节点名
 	// Name     string   //自己的节点名
 	// Type     string   //自己的节点名
-	Server   *Server  //自己rpc服务端
-	Services sync.Map //自己的服务列表
+	Server   *Server                      // 自己rpc服务端
+	Services utils.Map[string, GxService] // 自己的服务列表
 
 	// EtcdCli *etcdapi.EtcdCli //watch客户端
 
-	RpcClient sync.Map //到其他节点的连接
+	RpcClient utils.Map[string, *GxNodeConn] // 到其他节点的连接
 
 	// ServiceNode sync.Map               //服务对应节点名
 	Mutex       sync.Mutex
-	ServiceNode map[string]map[string]bool //服务对应节点名
+	ServiceNode map[string]map[string]bool // 服务对应节点名
 	// Region      uint32
 	// Set         string
 	ExitTime time.Duration
 
-	//全局变量
+	// 全局变量
 	IDGen *utils.IDGen
-	Data  sync.Map
 
 	//
 	MockData    map[string]*MockRsp
 	RpcCallBack RpcCallBack
 	Node        *config.NodeInfo
+
+	connNum int // 节点链接数
 }
 
 type MockRsp struct {
@@ -89,19 +91,19 @@ type MockRsp struct {
 	Error error
 }
 
-// NodeIntance 本节点实例
-var (
-	NodeIntance GxNode
-)
+// node 本节点实例
+// var (
+// 	node GxNode
+// )
 
 // GetRegisetr 获取master连接实例
-func GetRegisetr() IRegister {
-	return NodeIntance.IRegister
+func (node *GxNode) GetRegisetr() IRegister {
+	return node.IRegister
 }
 
 // 获取节点地址，支持host1/host2:port和host:port格式
 // host1-内网ip host2-外网ip
-func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
+func (node *GxNode) getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 	arr := strings.Split(nodeAddr, ":")
 	arr1 := strings.Split(arr[0], "/")
 
@@ -110,7 +112,7 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 	}
 
 	i := 0
-	if nodeRegion != NodeIntance.Config.Region {
+	if nodeRegion != node.Config.Region {
 		i = 1
 	}
 
@@ -118,42 +120,49 @@ func getNodeAddress(nodeAddr string, nodeRegion uint32) string {
 }
 
 // connectNode 连接到指定节点
-func connectNode(info *config.NodeInfo) {
-	if info.Name == NodeIntance.Config.Nodename {
+func (node *GxNode) connectNode(info *config.NodeInfo) {
+	if info.Name == node.Config.Nodename {
 		return
 	}
 
-	address := getNodeAddress(info.Address, info.Region)
-	context, err := Dial("tcp", address, WithName(info.Name, CloseCallback))
-	isClose := false
-	if err != nil {
-		isClose = true
-		utils.Info("连接节点失败", "name", info.Name, "address", address, "err", err)
-	} else {
-		utils.Info("连接节点成功", "name", info.Name, "address", address, "region", info.Region, "isClose", isClose)
-		context.Region = info.Region
+	nodeConn := &GxNodeConn{Info: info}
+
+	address := node.getNodeAddress(info.Address, info.Region)
+	for i := 0; i < node.connNum; i++ {
+		conn, err := Dial("tcp", address, WithName(info.Name, CloseCallback))
+		isClose := false
+		if err != nil {
+			isClose = true
+			utils.Info(fmt.Sprintf("[%v --<xxx>-- %v]连接[%v]节点失败", node.Config.Nodename, info.Name, i), "name", info.Name, "address", address, "err", err)
+		} else {
+			utils.Info(fmt.Sprintf("[%v -->---<-- %v]连接[%v]节点成功", node.Config.Nodename, info.Name, i), "name", info.Name, "address", address, "region", info.Region, "isClose", isClose)
+			conn.Region = info.Region
+			conn.Id = i
+
+			nodeConn.Conns = append(nodeConn.Conns, conn)
+		}
 	}
 
-	NodeIntance.Mutex.Lock()
-	//保存节点的所有服务，可能多个节点都有同一个服务
+	node.Mutex.Lock()
+	// 保存节点的所有服务，可能多个节点都有同一个服务
 	for i := 0; i < len(info.Services); i++ {
 		name := info.Services[i]
-		s, ok := NodeIntance.ServiceNode[name]
+		s, ok := node.ServiceNode[name]
 		if ok {
 			s[info.Name] = true
 		} else {
 			s1 := make(map[string]bool)
 			s1[info.Name] = true
-			NodeIntance.ServiceNode[name] = s1
+			node.ServiceNode[name] = s1
 		}
 	}
-	NodeIntance.Mutex.Unlock()
+	node.Mutex.Unlock()
 
-	NodeIntance.RpcClient.Store(info.Name, &GxNodeConn{info, context, isClose})
-	if !isClose {
-		NodeIntance.Services.Range(func(key, value interface{}) bool {
+	node.RpcClient.Store(info.Name, nodeConn)
+	if len(nodeConn.Conns) > 0 {
+		node.Services.Range(func(key string, value GxService) bool {
 			utils.Submit(func() {
-				value.(GxService).NodeConn(info.Name)
+				value.NodeConn(info.Name)
 			})
 			return true
 		})
@@ -161,36 +170,44 @@ func connectNode(info *config.NodeInfo) {
 }
 
 // handleExit 退出处理
-func handleExit() {
-	//信号处理，程序退出统一使用kill -2
+func (node *GxNode) handleExit() {
+	// 信号处理，程序退出统一使用kill -2
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	utils.Submit(func() {
 		<-signalChan
 
-		NodeIntance.IRegister.DelNode(NodeIntance.Config.Nodename)
+		node.IRegister.DelNode(node.Config.Nodename)
 
-		NodeIntance.Services.Range(func(key, value interface{}) bool {
+		node.Services.Range(func(key string, value GxService) bool {
 			utils.Submit(func() {
-				value.(GxService).Exit()
+				value.Exit()
 			})
 			return true
 		})
 
-		time.Sleep(NodeIntance.ExitTime * time.Second)
+		time.Sleep(node.ExitTime * time.Second)
 		os.Exit(0)
 	})
 }
 
-// SetExitTime 设置退出时间
-func SetExitTime(d time.Duration) {
-	NodeIntance.ExitTime = d
+type GxNodeParam func(*GxNode)
+
+func WithExitTime(d time.Duration) GxNodeParam {
+	return func(node *GxNode) {
+		node.ExitTime = d
+	}
 }
 
-func RegisterRpcCallBack(cb RpcCallBack) {
-	NodeIntance.RpcCallBack = cb
+func WithRpcCallBack(cb RpcCallBack) GxNodeParam {
+	return func(node *GxNode) {
+		node.RpcCallBack = cb
+	}
 }
+
+// 本地节点
+var localNode = &GxNode{}
 
 // NodeConfig 节点配置
 
@@ -203,27 +220,27 @@ func RegisterRpcCallBack(cb RpcCallBack) {
 // @port 节点端口
 // @region 所属区域
 // @cmds 注册和uint16的cmd绑定接口，用于游戏网关。原来是通过服务接口最后四个字符标识cmd，现在通过proto文件获取
-func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
+func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam) error {
 	utils.Info("初始化服务节点", "id", nodeConfig.Id, "name", nodeConfig.Nodename, "host", nodeConfig.Host, "port", nodeConfig.Port, "region", nodeConfig.Region)
 
-	//处理cmd
+	// 处理cmd
 	newCmds := make(map[int32]string)
 	for k, v := range nodeConfig.Cmds {
 		newCmds[k] = strings.Replace(v, "_", ".", 1)
 	}
 	nodeConfig.Cmds = newCmds
 
-	NodeIntance.IRegister = iRegisetr
-	NodeIntance.Config = nodeConfig
-	NodeIntance.ExitTime = 1
-	NodeIntance.ServiceNode = make(map[string]map[string]bool)
-	NodeIntance.Server = NewServer()
-	NodeIntance.Server.RpcCallBack = NodeIntance.RpcCallBack
-	NodeIntance.Services.Range(func(key, value interface{}) bool {
-		serviceName := key.(string)
-		NodeIntance.Server.RegisterName(serviceName, value)
+	localNode.IRegister = iRegisetr
+	localNode.Config = nodeConfig
+	localNode.ExitTime = 1
+	localNode.connNum = 4
+	localNode.ServiceNode = make(map[string]map[string]bool)
+	localNode.Server = NewServer()
+	localNode.Server.RpcCallBack = localNode.RpcCallBack
+	localNode.Services.Range(func(serviceName string, service GxService) bool {
+		localNode.Server.RegisterName(serviceName, service)
 		utils.Submit(func() {
-			err := value.(GxService).Run()
+			err := service.Run()
 			if err != nil {
 				fmt.Println(err)
 				os.Exit(0)
@@ -232,13 +249,17 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 		return true
 	})
 
-	handleExit()
+	for _, v := range params {
+		v(localNode)
+	}
 
-	//初始化一些全局变量
-	NodeIntance.IDGen = utils.NewIDGen(nodeConfig.Id)
+	localNode.handleExit()
+
+	// 初始化一些全局变量
+	localNode.IDGen = utils.NewIDGen(nodeConfig.Id)
 	addr := fmt.Sprintf("%v:%v", nodeConfig.Host, nodeConfig.Port)
 	listenPort := fmt.Sprintf(":%v", nodeConfig.Port)
-	NodeIntance.Node = &config.NodeInfo{
+	localNode.Node = &config.NodeInfo{
 		Id:      nodeConfig.Id,
 		Name:    nodeConfig.Nodename,
 		Type:    nodeConfig.Nodetype,
@@ -248,22 +269,22 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 	}
 
 	// 注册节点信息
-	NodeIntance.Services.Range(func(key, value interface{}) bool {
-		NodeIntance.Node.Services = append(NodeIntance.Node.Services, key.(string))
+	localNode.Services.Range(func(name string, service GxService) bool {
+		localNode.Node.Services = append(localNode.Node.Services, name)
 		return true
 	})
-	NodeIntance.IRegister.RegNode(NodeIntance.Node)
-	log.Println("RegisterNode", nodeConfig.Nodename, NodeIntance.Node.Address, NodeIntance.Node.Services)
+	localNode.IRegister.RegNode(localNode.Node)
+	log.Println("RegisterNode", nodeConfig.Nodename, localNode.Node.Address, localNode.Node.Services)
 
 	utils.Submit(func() {
 		// 拉去公共节点
-		nodes, _ := NodeIntance.IRegister.QueryNodes()
+		nodes, _ := localNode.IRegister.QueryNodes()
 		for _, v := range nodes {
 			if v.Set != "" && v.Set != nodeConfig.Set {
 				continue
 			}
 			log.Println("Get All global Node", v.Name, v.Address)
-			connectNode(v)
+			localNode.connectNode(v)
 		}
 	})
 
@@ -281,25 +302,24 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig) {
 	l, err := net.Listen("tcp", listenPort)
 	if err != nil {
 		fmt.Println("listen error", err)
-		return
+		return err
 	}
-	NodeIntance.Server.Accept(l)
+	localNode.Server.Accept(l)
+
+	return nil
 }
 
 // RangeNode 遍历节点
-func RangeNode(f func(node *GxNodeConn) bool) {
-	NodeIntance.RpcClient.Range(func(key interface{}, value interface{}) bool {
-		nodeInfo := value.(*GxNodeConn)
+func (node *GxNode) RangeNode(f func(node *GxNodeConn) bool) {
+	node.RpcClient.Range(func(key string, nodeInfo *GxNodeConn) bool {
 		return f(nodeInfo)
 	})
-
 }
 
 // QueryNodeStatus 查询当前节点连接状态
-func QueryNodeStatus() []*GxNodeConn {
+func (node *GxNode) QueryNodeStatus() []*GxNodeConn {
 	var cs []*GxNodeConn
-	NodeIntance.RpcClient.Range(func(key interface{}, value interface{}) bool {
-		nodeInfo := value.(*GxNodeConn)
+	node.RpcClient.Range(func(key string, nodeInfo *GxNodeConn) bool {
 		cs = append(cs, &GxNodeConn{
 			Info: &config.NodeInfo{
 				Id:      nodeInfo.Info.Id,
@@ -316,22 +336,23 @@ func QueryNodeStatus() []*GxNodeConn {
 
 // ConnectNewNode 尝试连接新节点
 func ConnectNewNode(name string) {
-	info, _ := NodeIntance.IRegister.QueryNode(name)
-	if info != nil && (info.Set == "" || info.Set == NodeIntance.Config.Set) {
-		connectNode(info)
+	info, _ := localNode.IRegister.QueryNode(name)
+	if info != nil && (info.Set == "" || info.Set == localNode.Config.Set) {
+		localNode.connectNode(info)
 	}
 }
 
 // DisconnectNode 断开节点连接
 func DisconnectNode(name string) {
-	info, ok := NodeIntance.RpcClient.Load(name)
+	nodeInfo, ok := localNode.RpcClient.Load(name)
 	if ok {
-		nodeInfo := info.(*GxNodeConn)
-		if nodeInfo.Conn != nil {
-			nodeInfo.Conn.Close()
+		for _, v := range nodeInfo.Conns {
+			if v != nil {
+				v.Close()
+			}
 		}
 		nodeInfo.Close = true
-		NodeIntance.RpcClient.Delete(name)
+		localNode.RpcClient.Delete(name)
 
 		utils.Info("删除节点", "nodeName", name)
 	}
@@ -356,57 +377,47 @@ func DisconnectNode(name string) {
 // ret, err := verifies[name].Call(funcName, &req, &rsp)
 // return uint16(ret), err
 func FindRpcConnByService(serviceName string) map[string]*Client {
-	NodeIntance.Mutex.Lock()
-	defer NodeIntance.Mutex.Unlock()
+	localNode.Mutex.Lock()
+	defer localNode.Mutex.Unlock()
 
-	NodeNames, ok := NodeIntance.ServiceNode[serviceName]
+	NodeNames, ok := localNode.ServiceNode[serviceName]
 	if !ok || len(NodeNames) == 0 {
 		return nil
 	}
 
 	m := make(map[string]*Client)
 	for k := range NodeNames {
-		context := getNode(k)
-		if context == nil {
+		conn := getNode(k)
+		if conn == nil {
 			continue
 		}
-		m[k] = context
+		m[k] = conn
 	}
 
 	return m
 }
 
 func getNode(nodeName string) *Client {
-	info, ok2 := NodeIntance.RpcClient.Load(nodeName)
+	nc, ok2 := localNode.RpcClient.Load(nodeName)
 	if !ok2 {
 		return nil
 	}
 
-	//重新连接
-	nc := info.(*GxNodeConn)
-	if nc.Conn == nil || nc.Conn.IsClose() {
-		address := getNodeAddress(nc.Info.Address, nc.Info.Region)
-		conn, err := Dial("tcp", address)
-		if err != nil {
-			utils.Info("连接节点失败", "name", nc.Info.Name, "address", address, "err", err)
-			return nil
-		}
-		nc.Conn = conn
-	}
-	return nc.Conn
+	// TODO: maybe nil connect or closed connect
+	return nc.Conns[rand.IntN(len(nc.Conns))]
 }
 
 // GetNode 获取指定节点的rpc连接实例
 func GetNode(nodeName string) *Client {
-	NodeIntance.Mutex.Lock()
-	defer NodeIntance.Mutex.Unlock()
+	localNode.Mutex.Lock()
+	defer localNode.Mutex.Unlock()
 
 	return getNode(nodeName)
 }
 
 // RegisterService 注册服务
 func RegisterService(serviceName string, service GxService) {
-	NodeIntance.Services.Store(serviceName, service)
+	localNode.Services.Store(serviceName, service)
 }
 
 // NodeCall 节点rpc调用
@@ -417,8 +428,8 @@ func NodeCall(nodeName string, serviceMethod string, req proto.Message, rsp prot
 		return mockRet, mockErr
 	}
 
-	if nodeName == NodeIntance.Config.Nodename {
-		return NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
+	if nodeName == localNode.Config.Nodename {
+		return localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
 	}
 
 	node := GetNode(nodeName)
@@ -434,8 +445,8 @@ func NodeJsonCallWithConn(context *Context, nodeName string, serviceMethod strin
 	if ok, mockRsp, mockRet, mockErr := callMock(serviceMethod); ok {
 		return mockRet, mockRsp.([]byte), mockErr
 	}
-	if nodeName == NodeIntance.Config.Nodename {
-		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, true)
+	if nodeName == localNode.Config.Nodename {
+		return localNode.Server.RawCall(context, serviceMethod, reqBuff, true)
 	}
 
 	node := GetNode(nodeName)
@@ -451,8 +462,8 @@ func NodeRawCallWithConn(context *Context, nodeName string, serviceMethod string
 	if ok, mockRsp, mockRet, mockErr := callMock(serviceMethod); ok {
 		return mockRet, mockRsp.([]byte), mockErr
 	}
-	if nodeName == NodeIntance.Config.Nodename {
-		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, false)
+	if nodeName == localNode.Config.Nodename {
+		return localNode.Server.RawCall(context, serviceMethod, reqBuff, false)
 	}
 
 	node := GetNode(nodeName)
@@ -469,8 +480,8 @@ func NodeSend(nodeName string, serviceMethod string, req proto.Message) error {
 		return mockErr
 	}
 
-	if nodeName == NodeIntance.Config.Nodename {
-		utils.Submit(func() { NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, nil) })
+	if nodeName == localNode.Config.Nodename {
+		utils.Submit(func() { localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, nil) })
 		return nil
 	}
 
@@ -491,8 +502,8 @@ func NodeCallWithConn(context *Context, nodeName string, serviceMethod string, r
 		return mockRet, mockErr
 	}
 
-	if nodeName == NodeIntance.Config.Nodename {
-		return NodeIntance.Server.InternalCall(context, serviceMethod, req, rsp)
+	if nodeName == localNode.Config.Nodename {
+		return localNode.Server.InternalCall(context, serviceMethod, req, rsp)
 	}
 
 	node := GetNode(nodeName)
@@ -509,9 +520,9 @@ func NodeSendWithConn(context *Context, nodeName string, serviceMethod string, r
 		return mockErr
 	}
 
-	if nodeName == NodeIntance.Config.Nodename {
+	if nodeName == localNode.Config.Nodename {
 		utils.Submit(func() {
-			NodeIntance.Server.InternalCall(context, serviceMethod, req, nil)
+			localNode.Server.InternalCall(context, serviceMethod, req, nil)
 		})
 		return nil
 	}
@@ -535,7 +546,7 @@ func Call(context *Context, serviceMethod string, req proto.Message, rsp proto.M
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -546,10 +557,10 @@ func Call(context *Context, serviceMethod string, req proto.Message, rsp proto.M
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		return NodeIntance.Server.InternalCall(context, serviceMethod, req, rsp)
+		return localNode.Server.InternalCall(context, serviceMethod, req, rsp)
 	} else {
 		client := getClient(serviceName)
 		if client == nil {
@@ -568,7 +579,7 @@ func Send(context *Context, serviceMethod string, req proto.Message) error {
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -580,11 +591,11 @@ func Send(context *Context, serviceMethod string, req proto.Message) error {
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
 		utils.Submit(func() {
-			NodeIntance.Server.InternalCall(context, serviceMethod, req, nil)
+			localNode.Server.InternalCall(context, serviceMethod, req, nil)
 		})
 		return nil
 	} else {
@@ -606,11 +617,11 @@ func Broadcast(serviceMethod string, req proto.Message) error {
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
 		utils.Submit(func() {
-			NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, nil)
+			localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, nil)
 		})
 	}
 
@@ -620,7 +631,7 @@ func Broadcast(serviceMethod string, req proto.Message) error {
 	}
 
 	for name, client := range clients {
-		if name == NodeIntance.Config.Nodename {
+		if name == localNode.Config.Nodename {
 			continue
 		}
 
@@ -638,11 +649,11 @@ func BroadcastCall(serviceMethod string, req proto.Message, rsp proto.Message, f
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		NodeIntance.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
-		if !f(NodeIntance.Config.Nodename) {
+		localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
+		if !f(localNode.Config.Nodename) {
 			return 0, nil
 		}
 	}
@@ -653,7 +664,7 @@ func BroadcastCall(serviceMethod string, req proto.Message, rsp proto.Message, f
 	}
 
 	for name, client := range clients {
-		if name == NodeIntance.Config.Nodename {
+		if name == localNode.Config.Nodename {
 			continue
 		}
 
@@ -674,7 +685,7 @@ func JsonCall(context *Context, serviceMethod string, reqBuff []byte) (uint16, [
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -685,15 +696,16 @@ func JsonCall(context *Context, serviceMethod string, reqBuff []byte) (uint16, [
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, true)
+		return localNode.Server.RawCall(context, serviceMethod, reqBuff, true)
 	} else {
 		client := getClient(serviceName)
 		if client == nil {
 			return 1, nil, fmt.Errorf("not support node rpc")
 		}
+		log.Println("--client.Id-", client.Id)
 
 		return client.JsonCall(context, serviceMethod, reqBuff)
 	}
@@ -707,7 +719,7 @@ func JsonSend(context *Context, serviceMethod string, reqBuff []byte) error {
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -719,11 +731,11 @@ func JsonSend(context *Context, serviceMethod string, reqBuff []byte) error {
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
 		utils.Submit(func() {
-			NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, true)
+			localNode.Server.RawCall(context, serviceMethod, reqBuff, true)
 		})
 		return nil
 	} else {
@@ -745,7 +757,7 @@ func RawCall(context *Context, serviceMethod string, reqBuff []byte) (uint16, []
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -756,10 +768,10 @@ func RawCall(context *Context, serviceMethod string, reqBuff []byte) (uint16, []
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		return NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, false)
+		return localNode.Server.RawCall(context, serviceMethod, reqBuff, false)
 	} else {
 		client := getClient(serviceName)
 		if client == nil {
@@ -778,7 +790,7 @@ func RawSend(context *Context, serviceMethod string, reqBuff []byte) error {
 
 	serviceName, _ := splitServiceMethod(serviceMethod)
 
-	//根据路由转发
+	// 根据路由转发
 	for i := 0; i < len(context.Nodes); i++ {
 		if serviceName == context.Nodes[i].ServiceName {
 			client := getNode(context.Nodes[i].NodeName)
@@ -790,11 +802,11 @@ func RawSend(context *Context, serviceMethod string, reqBuff []byte) error {
 		}
 	}
 
-	_, ok := NodeIntance.Services.Load(serviceName)
+	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
 		utils.Submit(func() {
-			NodeIntance.Server.RawCall(context, serviceMethod, reqBuff, false)
+			localNode.Server.RawCall(context, serviceMethod, reqBuff, false)
 		})
 		return nil
 	} else {
@@ -819,12 +831,12 @@ func EmptyContext() *Context {
 
 // CloseCallback rpc连接断开回调
 func CloseCallback(name string, err error) {
-	utils.Info("节点断开连接", "name", name, "err", err)
-	NodeIntance.RpcClient.Delete(name)
+	utils.Info(fmt.Sprintf("[%v --<xxx>-- %v]节点断开连接", localNode.Node.Name, name), "name", name, "err", err)
+	localNode.RpcClient.Delete(name)
 
-	NodeIntance.Services.Range(func(key, value interface{}) bool {
+	localNode.Services.Range(func(key string, value GxService) bool {
 		utils.Submit(func() {
-			value.(GxService).NodeClose(name)
+			value.NodeClose(name)
 		})
 		return true
 	})
@@ -832,18 +844,7 @@ func CloseCallback(name string, err error) {
 
 // NewId 生成一个新id
 func NewId(moduleId uint64) uint64 {
-	return NodeIntance.IDGen.NewID(moduleId)
-}
-
-// GetData 获取节点全局数据
-func GetData(key interface{}, def interface{}) interface{} {
-	v, _ := NodeIntance.Data.LoadOrStore(key, def)
-	return v
-}
-
-// DelData 删除节点全局数据
-func DelData(key interface{}) {
-	NodeIntance.Data.Delete(key)
+	return localNode.IDGen.NewID(moduleId)
 }
 
 // getClient 寻找和本节点匹配的节点
@@ -853,13 +854,13 @@ func getClient(serviceName string) *Client {
 		return nil
 	}
 
-	//优先找区域匹配节点，如果找不到就随便找一个
+	// 优先找区域匹配节点，如果找不到就随便找一个
 	var client, client2 *Client
 	for _, c := range clients {
 		if client2 == nil {
 			client2 = c
 		}
-		if client == nil && NodeIntance.Config.Region == c.Region {
+		if client == nil && localNode.Config.Region == c.Region {
 			client = c
 		}
 	}
@@ -870,18 +871,18 @@ func getClient(serviceName string) *Client {
 }
 
 func InitMock() {
-	NodeIntance.MockData = make(map[string]*MockRsp)
+	localNode.MockData = make(map[string]*MockRsp)
 }
 
 func InsertMock(serviceMethon string, rsp *MockRsp) {
-	NodeIntance.MockData[serviceMethon] = rsp
+	localNode.MockData[serviceMethon] = rsp
 }
 
 func callMock(serviceMethon string) (bool, interface{}, uint16, error) {
-	if NodeIntance.MockData == nil {
+	if localNode.MockData == nil {
 		return false, nil, 0, nil
 	}
-	data, ok := NodeIntance.MockData[serviceMethon]
+	data, ok := localNode.MockData[serviceMethon]
 	if !ok {
 		return ok, nil, 0, nil
 	}
@@ -890,22 +891,22 @@ func callMock(serviceMethon string) (bool, interface{}, uint16, error) {
 }
 
 func RemoveMock() {
-	NodeIntance.MockData = nil
+	localNode.MockData = nil
 }
 
 func SubmitEvent(serviceName, eventName string, args ...interface{}) {
 	if serviceName != "" {
-		v, ok := NodeIntance.Services.Load(serviceName)
+		v, ok := localNode.Services.Load(serviceName)
 		if ok {
 			utils.Submit(func() {
-				v.(GxService).OnEvent(eventName, args...)
+				v.OnEvent(eventName, args...)
 			})
 			return
 		}
 	}
-	NodeIntance.Services.Range(func(key, value interface{}) bool {
+	localNode.Services.Range(func(key string, value GxService) bool {
 		utils.Submit(func() {
-			value.(GxService).OnEvent(eventName, args...)
+			value.OnEvent(eventName, args...)
 		})
 		return true
 	})
@@ -913,10 +914,14 @@ func SubmitEvent(serviceName, eventName string, args ...interface{}) {
 
 // FindServiceMethod 查询服务方法
 func FindServiceMethod(cmd uint16) string {
-	i, ok := NodeIntance.Config.Cmds[int32(cmd)]
+	i, ok := localNode.Config.Cmds[int32(cmd)]
 	if !ok {
 		return ""
 	}
 
 	return i
+}
+
+func GetNodeConfig() *NodeConfig {
+	return localNode.Config
 }

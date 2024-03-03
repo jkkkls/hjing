@@ -31,6 +31,7 @@ func RunHttpGateway(port int) error {
 	router.Post("/rpcapi/*", rpcHandler)
 	utils.Info("启动rpc http服务器", "port", port)
 
+	fasthttp.AcquireResponse().Header.SetServer("hjing server")
 	return fasthttp.ListenAndServe(fmt.Sprintf(":%v", port), router.HandleRequest)
 }
 
