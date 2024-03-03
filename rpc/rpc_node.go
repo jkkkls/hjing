@@ -9,7 +9,6 @@ package rpc
 import (
 	"fmt"
 	"log"
-	"math/rand/v2"
 	"net"
 	"os"
 	"os/signal"
@@ -50,7 +49,26 @@ type NodeConfig struct {
 type GxNodeConn struct {
 	Info  *config.NodeInfo
 	Conns []*Client
+
+	UseTime []int64
+	Mutex   sync.Mutex
+
 	Close bool
+}
+
+func (conn *GxNodeConn) getConn() *Client {
+	n := len(conn.Conns)
+	index := -1
+	conn.Mutex.Lock()
+	for i := 0; i < n; i++ {
+		if index == -1 || conn.UseTime[index] > conn.UseTime[i] {
+			index = i
+		}
+	}
+	conn.UseTime[index] = time.Now().UnixMilli()
+	conn.Mutex.Unlock()
+
+	return conn.Conns[index]
 }
 
 // GxNode 本节点信息
@@ -138,10 +156,10 @@ func (node *GxNode) connectNode(info *config.NodeInfo) {
 			utils.Info(fmt.Sprintf("[%v -->---<-- %v]连接[%v]节点成功", node.Config.Nodename, info.Name, i), "name", info.Name, "address", address, "region", info.Region, "isClose", isClose)
 			conn.Region = info.Region
 			conn.Id = i
-
 			nodeConn.Conns = append(nodeConn.Conns, conn)
 		}
 	}
+	nodeConn.UseTime = make([]int64, node.connNum)
 
 	node.Mutex.Lock()
 	// 保存节点的所有服务，可能多个节点都有同一个服务
@@ -404,7 +422,14 @@ func getNode(nodeName string) *Client {
 	}
 
 	// TODO: maybe nil connect or closed connect
-	return nc.Conns[rand.IntN(len(nc.Conns))]
+	// var cli *Client
+	// for _, v := range nc.Conns {
+	// 	if cli == nil || cli.UseTime < v.UseTime {
+	// 		cli = v
+	// 	}
+	// }
+
+	return nc.getConn()
 }
 
 // GetNode 获取指定节点的rpc连接实例
@@ -705,8 +730,6 @@ func JsonCall(context *Context, serviceMethod string, reqBuff []byte) (uint16, [
 		if client == nil {
 			return 1, nil, fmt.Errorf("not support node rpc")
 		}
-		log.Println("--client.Id-", client.Id)
-
 		return client.JsonCall(context, serviceMethod, reqBuff)
 	}
 }
