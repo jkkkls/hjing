@@ -15,6 +15,7 @@
 wget https://github.com/protocolbuffers/protobuf/releases/download/v24.4/protoc-24.4-osx-x86_64.zip
 
 # 安装protoc-gen-gogu
+# https://gitee.com/jkkkls/protobuf/releases/tag/v1.32.0下载自己需要的版本
 go install gitee.com/jkkkls/protobuf/cmd/protoc-gen-gogu@latest
 
 # goimports
