@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/jkkkls/hjing/cmds/hjing/internal/app"
 
 	"github.com/spf13/cobra"
@@ -8,8 +10,8 @@ import (
 
 var cmd = &cobra.Command{
 	Use:     "hjing",
-	Short:   "hjing: An simple toolkit for Go microservices.",
-	Long:    `hjing: An simple toolkit for Go microservices.`,
+	Short:   fmt.Sprintf("hjing[%v]: An simple toolkit for Go microservices.", version),
+	Long:    fmt.Sprintf("hjing[%v]: An simple toolkit for Go microservices...", version),
 	Version: version,
 }
 
