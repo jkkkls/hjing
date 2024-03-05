@@ -25,6 +25,9 @@ go install github.com/jkkkls/hjing/cmds/hjing@latest
 
 # 安装配置表工具xlsx2proto
 go install github.com/jkkkls/hjing/cmds/xlsx2proto@latest
+
+# 安装nodejs yarn, 百度。。。
+
 ```
 
 ## 创建一个项目
@@ -82,10 +85,10 @@ create project[github.com/jkkkls/test_app] success
 
 ➜  hjing_space -> cd test_app
 # 添加网关应用, 之后记住修改gate.yaml的节点端口
-➜  test_app -> hjing add-app gate
+$hjing add-app gate
 create app[gate] success
 # 添加数据应用, 之后记住修改data.yaml的节点端口
-➜  test_app -> hjing add-app data
+$hjing add-app data
 create app[data] success
 
 #修改data.yaml的节点端口和id
@@ -99,12 +102,13 @@ app:
 #修改gate.yaml，增加内网http端口
 
 
-# 编译data和gate
-➜  test_app -> go mod tidy
-➜  test_app -> make data
+# 编译admin,data和gate
+$go mod tidy
+$make admin
+$make data
 fatal: not a git repository (or any of the parent directories): .git
 编译data完成
-➜  test_app -> make gate
+$make gate
 fatal: not a git repository (or any of the parent directories): .git
 编译gate完成
 
@@ -113,7 +117,7 @@ cd etcd
 ./etcd
 
 #2. 启动data应用
-➜  test_app -> cd build
+$cd build
 ➜  build -> ./data
 Version      : 2000.01.01.release
 Git SHA      : xxx
@@ -126,7 +130,7 @@ Build Area   :
 2024-02-06 13:08:48.054986 INFO rpc_node.go:133 连接节点成功 [name=gate address=127.0.0.1:10001 region=0 isClose=false]
 
 #3. 启动gate应用
-➜  test_app -> cd build
+$cd build
 ➜  build -> ./gate
 Version      : 2000.01.01.release
 Git SHA      : xxx
@@ -145,13 +149,13 @@ Build Area   :
 
 ``` shell
 # 添加数据库服务到data应用中
-➜  test_app -> hjing add-svc data db
+$hjing add-svc data db
 create service[db] success
 
 # 添加两个接口到db服务中
-➜  test_app -> hjing  add-itf db get
+$hjing  add-itf db get
 create interface[get] for db success
-➜  test_app -> hjing  add-itf db set
+$hjing  add-itf db set
 create interface[set] for db success
 ```
 
@@ -182,7 +186,7 @@ message SetRsp {
 
 4. 重新编译协议文件
 ``` shell
-➜  test_app -> make pb
+$make pb
 ```
 
 5. 添加接口实现[services/db/service.go]
@@ -246,7 +250,7 @@ etcds:
 
 ``` shell
 # 通过gate的rpcapi接口调用data的db服务
-➜  test_app -> curl -i -X POST -d '{"key":"a", "value":"b"}' 'http://127.0.0.1:8081/rpcapi/db/set'
+$curl -i -X POST -d '{"key":"a", "value":"b"}' 'http://127.0.0.1:8081/rpcapi/db/set'
 HTTP/1.1 200 OK
 Server: fasthttp
 Date: Tue, 06 Feb 2024 09:48:56 GMT
@@ -255,7 +259,7 @@ Content-Length: 2
 
 {}
 
-➜  test_app -> curl -i -X POST -d '{"key":"a"}' 'http://127.0.0.1:8081/rpcapi/db/get'
+$curl -i -X POST -d '{"key":"a"}' 'http://127.0.0.1:8081/rpcapi/db/get'
 HTTP/1.1 200 OK
 Server: fasthttp
 Date: Tue, 06 Feb 2024 09:48:32 GMT
@@ -264,3 +268,10 @@ Content-Length: 13
 
 {"value":"b"}
 ```
+
+
+### admin 管理后台 默认账号密码 admin123/admin123
+
+![avatar](png/login.png)
+![avatar](png/welcome.png)
+![avatar](png/monitor.png)
