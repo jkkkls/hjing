@@ -45,7 +45,7 @@ var CmdNew = &cobra.Command{
 			return
 		}
 
-		err = layout.CopyDir("project", dir, "{{projectName}}", projectName, "upProjectName", upDir)
+		err = layout.CopyDir("project", dir, "{{projectName}}", projectName, "{{upProjectName}}", upDir)
 		if err != nil {
 			cmd.Usage()
 			color.Red(err.Error())
@@ -60,4 +60,5 @@ var CmdNew = &cobra.Command{
 		}
 
 		color.Green("create project[%v] success\n", projectName)
-	}}
+	},
+}

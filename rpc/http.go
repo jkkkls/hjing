@@ -31,7 +31,6 @@ func RunHttpGateway(port int) error {
 	router.Post("/rpcapi/*", rpcHandler)
 	utils.Info("启动rpc http服务器", "port", port)
 
-	fasthttp.AcquireResponse().Header.SetServer("hjing server")
 	return fasthttp.ListenAndServe(fmt.Sprintf(":%v", port), router.HandleRequest)
 }
 
@@ -92,6 +91,7 @@ func rpcHandler(ctx *routing.Context) error {
 	}
 
 	ctx.SetStatusCode(http.StatusOK)
+	ctx.Response.Header.SetServer("hjing server")
 	ctx.Response.Header.Set("Content-Type", "application/json")
 	ctx.Write(rspBuff)
 	return nil
@@ -106,5 +106,6 @@ func JsonResponse2(ctx *routing.Context, response interface{}) {
 
 	ctx.SetStatusCode(http.StatusOK)
 	ctx.Response.Header.Set("Content-Type", "application/json")
+	ctx.Response.Header.SetServer("hjing server")
 	ctx.Write(json)
 }

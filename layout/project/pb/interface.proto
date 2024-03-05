@@ -1,6 +1,6 @@
 syntax = "proto3";
 package common;  // 声明所在包
-option go_package = "{{domain}}/pb";
+option go_package = "{{projectName}}/pb";
 
 
 // 接口命令
