@@ -1,11 +1,19 @@
 # hjing
 
-微服务框架
+***了解go即可使用的全栈微服务框架***
+
+框架特点：
+
+* 代码自动生成
+* 集成可用的管理后台
+* 集成http api网关
+* 集成长链接网关
 
 # 计划列表
 
 - [ ] 集成后台，支持监控，日志，配置等
-
+- [ ] http api网关，支持监控，统计，熔断降载等
+- [ ] 优化长链接网关，支持游戏等业务快速开发
 
 ## 安装依赖
 
@@ -104,6 +112,7 @@ app:
 
 # 编译admin,data和gate
 $go mod tidy
+$make pb
 $make admin
 $make data
 fatal: not a git repository (or any of the parent directories): .git
