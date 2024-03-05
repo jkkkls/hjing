@@ -1,0 +1,19 @@
+app:
+  id: 3
+  name: admin
+  desc: admin
+  host: 127.0.0.1
+  port: 10003
+  type: admin
+log:
+  level: 0
+  dir: ./log
+  screen: true
+etcds:
+  - 127.0.0.1:2379
+custom:
+  web:
+    dbType: sqlite
+    dbDsn: web.db
+    address: ":9094"
+    webAddress: ":9098"

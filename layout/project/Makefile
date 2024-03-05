@@ -13,7 +13,7 @@ GOGET=$(GOCMD) get
 
 all: pb build
 
-.PHONY: pb
+.PHONY: pb admin
 
 
 #pb tag
@@ -21,6 +21,12 @@ pb:
 	@protoc -I. --gogu_out ./ --gogu_opt paths=source_relative ./pb/*.proto
 	@$(GOCMD) fmt ./pb/*.go
 	@echo "编协议文件完成"
+admin:
+	@cd services/web_frontend/ && yarn install && yarn build
+	@cp -rf services/web_frontend/dist/* services/web_backend/dist/
+	@$(GOBUILD) -o build/admin {{projectName}}/apps/admin
+	@cp apps/admin/admin.yaml ./build/
+	@echo "编译admin完成"
 
 #build tag
 build:

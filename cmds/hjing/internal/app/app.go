@@ -56,7 +56,7 @@ var CmdAddApp = &cobra.Command{
 			color.Red(err.Error())
 		}
 
-		err = layout.CopyFile("app/app.main.go.tpl", "apps/"+appName+"/main.go", "{{appName}}", appName)
+		err = layout.CopyFile("app/app.main.go.tpl", "apps/"+appName+"/main.go", "{{appName}}", appName, "{{projectName}}", domain)
 		if err != nil {
 			cmd.Usage()
 			color.Red(err.Error())
@@ -79,7 +79,7 @@ var CmdAddApp = &cobra.Command{
 		mkBuff = bytes.ReplaceAll(mkBuff, []byte(".PHONY: "), []byte(".PHONY: "+appName+" "))
 		mkBuff = bytes.ReplaceAll(mkBuff, appBuildMask, []byte(string(appBuildMask)+" "+appName))
 		mkBuff = bytes.ReplaceAll(mkBuff, appPbMask, []byte(mask))
-		os.WriteFile("Makefile", mkBuff, 0644)
+		os.WriteFile("Makefile", mkBuff, 0o644)
 
 		color.Green("create app[%v] success", appName)
 	},
