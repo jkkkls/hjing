@@ -1,9 +1,9 @@
 app:
-  id: 3
+  id: 1
   name: admin
   desc: admin
   host: 127.0.0.1
-  port: 10003
+  port: 10001
   type: admin
 log:
   level: 0
