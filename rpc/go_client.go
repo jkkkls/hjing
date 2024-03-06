@@ -243,7 +243,7 @@ func NewClientWithCodec(codec ClientCodec) *Client {
 		pending:    make(map[uint64]*CallInfo),
 		TimeoutSec: 300,
 	}
-	utils.Submit(func() {
+	utils.Go(func() {
 		client.input()
 	})
 

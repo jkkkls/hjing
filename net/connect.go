@@ -15,8 +15,8 @@ type ClientConn struct {
 	Rwc        io.ReadWriteCloser
 	Context    *rpc.Context
 	Uid        string
-	CommonNode string //通用逻辑节点
-	GameNode   string //游戏逻辑节点
+	CommonNode string // 通用逻辑节点
+	GameNode   string // 游戏逻辑节点
 	T          *time.Timer
 	App        string
 	Mask       uint8
@@ -24,12 +24,14 @@ type ClientConn struct {
 	Key        []byte
 }
 
-type InterceptorNewFunc func(*ClientConn) (*Message, error)                                  //新连接
-type InterceptorReqFunc func(*ClientConn, *Message) (*Message, error)                        //新消息
-type InterceptorRspFunc func(*ClientConn, *Message, []byte, uint16, error) (*Message, error) //服务端回复
+type (
+	InterceptorNewFunc func(*ClientConn) (*Message, error)                                  // 新连接
+	InterceptorReqFunc func(*ClientConn, *Message) (*Message, error)                        // 新消息
+	InterceptorRspFunc func(*ClientConn, *Message, []byte, uint16, error) (*Message, error) // 服务端回复
+)
 
 func (conn *ClientConn) SendMessage(ICode ICode, msg *Message) {
-	utils.Submit(
+	utils.Go(
 		func() {
 			conn.Mutex.Lock()
 			defer conn.Mutex.Unlock()

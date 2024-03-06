@@ -187,7 +187,7 @@ func RunWebServices() error {
 
 	log.Println("server start")
 
-	utils.Submit(func() {
+	utils.Go(func() {
 		// r.Run(models.Conf.Net.Address)
 		r.Run(config.GetString("web", "address"))
 	})

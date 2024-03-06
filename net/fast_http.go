@@ -14,9 +14,7 @@ import (
 
 type MiddleFunc func(*routing.Context) error
 
-var (
-	ApiMiddleFunc MiddleFunc
-)
+var ApiMiddleFunc MiddleFunc
 
 func RegisterApiMiddleFunc(f MiddleFunc) {
 	ApiMiddleFunc = f
@@ -35,7 +33,7 @@ func getFastRemote(ctx *routing.Context) string {
 
 type HttpParam func(*routing.Router)
 
-func RunApiHttp(port int, params ...HttpParam) error {
+func (gater *Gater) RunApiHttp(port int, params ...HttpParam) error {
 	router := routing.New()
 
 	for _, v := range params {
@@ -46,7 +44,7 @@ func RunApiHttp(port int, params ...HttpParam) error {
 		return nil
 	})
 
-	//api
+	// api
 	api := router.Group("/api")
 	api.Use(func(ctx *routing.Context) error {
 		if ApiMiddleFunc != nil {
@@ -54,7 +52,7 @@ func RunApiHttp(port int, params ...HttpParam) error {
 		}
 		return nil
 	})
-	api.Post("/*", ProtectedHandler)
+	api.Post("/*", gater.ProtectedHandler)
 
 	utils.Info("启动api2服务器", "port", port)
 
@@ -62,7 +60,7 @@ func RunApiHttp(port int, params ...HttpParam) error {
 }
 
 // ProtectedHandler2 入口
-func ProtectedHandler(ctx *routing.Context) error {
+func (gater *Gater) ProtectedHandler(ctx *routing.Context) error {
 	ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
 	ctx.Response.Header.Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 	ctx.Response.Header.Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Authorization, Accept, X-Requested-With")

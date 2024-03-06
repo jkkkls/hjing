@@ -35,31 +35,31 @@ func SetDefaultErrCall(f func(string, ...interface{})) {
 }
 
 // Submit submits a task to pool.
-func Submit(task func()) error {
+func Go(task func()) error {
 	return getPool().Submit(task)
 }
 
-// Running returns the number of the currently running goroutines.
-func Running() int {
-	return getPool().Running()
-}
+// // Running returns the number of the currently running goroutines.
+// func Running() int {
+// 	return getPool().Running()
+// }
 
-// Cap returns the capacity of this default pool.
-func Cap() int {
-	return getPool().Cap()
-}
+// // Cap returns the capacity of this default pool.
+// func Cap() int {
+// 	return getPool().Cap()
+// }
 
-// Free returns the available goroutines to work.
-func Free() int {
-	return getPool().Free()
-}
+// // Free returns the available goroutines to work.
+// func Free() int {
+// 	return getPool().Free()
+// }
 
-// Release Closes the default pool.
-func Release() {
-	getPool().Release()
-}
+// // Release Closes the default pool.
+// func Release() {
+// 	getPool().Release()
+// }
 
-// Reboot reboots the default pool.
-func Reboot() {
-	getPool().Reboot()
-}
+// // Reboot reboots the default pool.
+// func Reboot() {
+// 	getPool().Reboot()
+// }

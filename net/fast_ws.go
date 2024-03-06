@@ -27,7 +27,6 @@ func (c *WsConn2) Write(b []byte) (int, error) {
 
 func (c *WsConn2) Read(b []byte) (int, error) {
 	if c.Buff.Len() > 0 {
-
 		return c.Buff.Read(b)
 	}
 	_, buff, err := c.Conn.ReadMessage()
@@ -46,9 +45,9 @@ func (s *WsConn2) SetWriteDeadline(t time.Time) error {
 	return s.Conn.SetWriteDeadline(t)
 }
 
-func RunWSServer(port int) error {
+func (gater *Gater) RunWSServer(port int) error {
 	utils.Info("启动websocket", "port", port)
-	http.HandleFunc("/ws", HandleWebsocket)
+	http.HandleFunc("/ws", gater.HandleWebsocket)
 	err := http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
 	if err != nil {
 		return err
@@ -60,21 +59,21 @@ func RunWSServer(port int) error {
 var upgrader2 = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	//不检查origin
-	//https://time-track.cn/websocket-and-golang.html
+	// 不检查origin
+	// https://time-track.cn/websocket-and-golang.html
 	CheckOrigin: func(r *http.Request) bool {
 		return true
 	},
 }
 
 // HandleWebsocket websocket新连接回调
-func HandleWebsocket(w http.ResponseWriter, r *http.Request) {
+func (gater *Gater) HandleWebsocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader2.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
 
-	utils.Submit(func() {
+	utils.Go(func() {
 		gater.handleConn(&WsConn2{Conn: conn}, getRemote(r), "ws")
 	})
 }

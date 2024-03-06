@@ -18,17 +18,17 @@ import (
 
 // log 异步 多pipe
 const (
-	//TraceLevel Trace级别
+	// TraceLevel Trace级别
 	TraceLevel = iota
-	//DebugLevel Debug级别
+	// DebugLevel Debug级别
 	DebugLevel
-	//WarnLevel Warn级别
+	// WarnLevel Warn级别
 	WarnLevel
-	//ErrorLevel Error级别
+	// ErrorLevel Error级别
 	ErrorLevel
-	//InfoLevel Info级别
+	// InfoLevel Info级别
 	InfoLevel
-	//FatalLevel Fatal级别
+	// FatalLevel Fatal级别
 	FatalLevel
 )
 
@@ -57,11 +57,13 @@ type LogColor struct {
 	LevelRight string
 }
 
-var logPath string
-var logOutputScreen bool
-var logScreenCache chan *GosLogContent
-var logInit bool = false
-var defaultLog *GosLog
+var (
+	logPath         string
+	logOutputScreen bool
+	logScreenCache  chan *GosLogContent
+	logInit         bool = false
+	defaultLog      *GosLog
+)
 
 var logColor map[string]*LogColor = map[string]*LogColor{
 	"TRAC": {LevelLeft: "", LevelRight: ""},
@@ -88,7 +90,7 @@ func WithPlugin(f func(map[string]any)) LogParam {
 
 // InitLogger 日志模块初始化函数,程序启动时调用
 func GosLogInit(name, path string, screen bool, level int, params ...LogParam) {
-	//只初始化一次
+	// 只初始化一次
 	if logInit {
 		return
 	}
@@ -143,7 +145,7 @@ func GosLogNewRouter(name string) *GosLog {
 
 	timeStr := getLogTime()
 	file := logPath + "/" + name + ".log." + timeStr
-	logFile, err := os.OpenFile(file, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	logFile, err := os.OpenFile(file, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o666)
 	if err != nil {
 		return nil
 	}
@@ -167,7 +169,7 @@ func GosLogNewRouter(name string) *GosLog {
 				gl.LogFile.Write(data)
 				gl.LogFile.WriteString("\n")
 
-				Submit(func() {
+				Go(func() {
 					for _, v := range gl.plugin {
 						v(m)
 					}
@@ -268,7 +270,7 @@ func (l *GosLog) checkTime() {
 	l.LogFile.Close()
 
 	file := logPath + "/" + l.Name + ".log." + l.Time
-	l.LogFile, _ = os.OpenFile(file, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
+	l.LogFile, _ = os.OpenFile(file, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0o666)
 }
 
 // Log 不是很重要类型日志

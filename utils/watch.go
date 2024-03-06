@@ -9,13 +9,14 @@ import (
 	"github.com/fsnotify/fsnotify"
 )
 
+// InitWatch 文件监控, linux下有点问题
 func InitWatch(f func(), files ...string) error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Println("NewWatcher fail", "err", err.Error())
 		return err
 	}
-	var fileMap = make(map[string]struct{})
+	fileMap := make(map[string]struct{})
 	for _, v := range files {
 		st, err := os.Lstat(v)
 		if err != nil {
@@ -33,7 +34,7 @@ func InitWatch(f func(), files ...string) error {
 	}
 	Info("watch file", "files", fileMap)
 
-	Submit(func() {
+	Go(func() {
 		defer watcher.Close()
 		for {
 			select {

@@ -30,7 +30,7 @@ func ConnEtcd(addrs ...string) (*EtcdCli, error) {
 
 func (ec *EtcdCli) Watch(key string, f func(string, *config.NodeInfo)) {
 	ch := ec.Cli.Watch(context.Background(), key, clientv3.WithPrefix())
-	utils.Submit(func() {
+	utils.Go(func() {
 		for wresp := range ch {
 			for _, ev := range wresp.Events {
 				switch ev.Type {

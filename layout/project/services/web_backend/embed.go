@@ -41,7 +41,7 @@ func initEmbedReact() {
 	h.HandleFunc("/api/", handleApi)
 	h.HandleFunc("/", handleStatic)
 
-	utils.Submit(func() {
+	utils.Go(func() {
 		err := http.ListenAndServe(addr, h)
 		if err != nil {
 			panic(err)

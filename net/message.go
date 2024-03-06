@@ -11,13 +11,13 @@ type ICode interface {
 }
 
 type Message struct {
-	Cmd      uint16 //消息类型Id
-	Seq      uint16 //消息序号
-	Ret      uint16 //服务端返回结果
-	NodeName string //节点名称
+	Cmd      uint16 // 消息类型Id
+	Seq      uint16 // 消息序号
+	Ret      uint16 // 服务端返回结果
+	NodeName string // 节点名称
 	Params   map[string]any
 	Disconn  bool
-	Buff     []byte //消息内容
+	Buff     []byte // 消息内容
 	IsJson   bool
 }
 

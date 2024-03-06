@@ -8,9 +8,10 @@ import (
 	"net/http"
 )
 
+// WriteZinc openobserve支持
 func WriteZinc(domain, username, password, index string, data []byte) error {
-	//http://localhost:4080/api/games3/_doc
-	//http://localhost:5080/api/default/quickstart1/_json
+	// http://localhost:4080/api/games3/_doc
+	// http://localhost:5080/api/default/quickstart1/_json
 	req, err := http.NewRequest("POST", fmt.Sprintf("%v/api/default/%v/_json", domain, index), bytes.NewReader(data))
 	if err != nil {
 		log.Fatal(err)

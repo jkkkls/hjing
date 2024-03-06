@@ -32,11 +32,9 @@ type GaterOption func(*Gater)
 var gater *Gater
 
 // NewGater 初始化网关
-func NewGater(syncCall bool, icode ICode, options ...GaterOption) *Gater {
+func NewGater(options ...GaterOption) *Gater {
 	gater = &Gater{
 		IDCounter:  1,
-		SyncCall:   syncCall,
-		ICode:      icode,
 		NodeConfig: rpc.GetNodeConfig(),
 	}
 
@@ -44,6 +42,14 @@ func NewGater(syncCall bool, icode ICode, options ...GaterOption) *Gater {
 		o(gater)
 	}
 	return gater
+}
+
+// RegisterNewFuncs 注册新连接拦截器
+func TcpParam(syncCall bool, icode ICode) GaterOption {
+	return func(g *Gater) {
+		g.SyncCall = syncCall
+		g.ICode = icode
+	}
 }
 
 // RegisterNewFuncs 注册新连接拦截器
@@ -138,7 +144,7 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 	}
 
 	// 连接心跳定时器
-	utils.Submit(func() {
+	utils.Go(func() {
 		for range conn.T.C {
 			rwc.Close()
 			conn.T.Stop()
@@ -213,7 +219,7 @@ func (g *Gater) handleConn(rwc io.ReadWriteCloser, remote string, connType strin
 			if g.SyncCall {
 				utils.ProtectCall(f, nil)
 			} else {
-				utils.Submit(f)
+				utils.Go(f)
 			}
 		} else {
 			conn.SendMessage(g.ICode, &Message{

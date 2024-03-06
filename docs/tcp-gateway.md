@@ -18,8 +18,9 @@ func main() {
 		// end register
 		return nil
 	}).WithPlugin(func(app *rpc.App) error {
-		utils.Submit(func() {
-			err := net.RunTCPServer(config.GetInt("tcpPort"))
+		utils.Go(func() {
+			gater := net.NewGater(net.TcpParam(true, &net.ConnCoder{}))
+			err := gater.RunTCPServer(config.GetInt("tcpPort"))
 			if err != nil {
 				panic(err)
 			}

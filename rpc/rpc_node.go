@@ -179,7 +179,7 @@ func (node *GxNode) connectNode(info *config.NodeInfo) {
 	node.RpcClient.Store(info.Name, nodeConn)
 	if len(nodeConn.Conns) > 0 {
 		node.Services.Range(func(key string, value GxService) bool {
-			utils.Submit(func() {
+			utils.Go(func() {
 				value.NodeConn(info.Name)
 			})
 			return true
@@ -193,13 +193,13 @@ func (node *GxNode) handleExit() {
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
-	utils.Submit(func() {
+	utils.Go(func() {
 		<-signalChan
 
 		node.IRegister.DelNode(node.Config.Nodename)
 
 		node.Services.Range(func(key string, value GxService) bool {
-			utils.Submit(func() {
+			utils.Go(func() {
 				value.Exit()
 			})
 			return true
@@ -259,7 +259,7 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 	localNode.Server.RpcCallBack = localNode.RpcCallBack
 	localNode.Services.Range(func(serviceName string, service GxService) bool {
 		localNode.Server.RegisterName(serviceName, service)
-		utils.Submit(func() {
+		utils.Go(func() {
 			err := service.Run()
 			if err != nil {
 				fmt.Println(err)
@@ -296,7 +296,7 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 	localNode.IRegister.RegNode(localNode.Node)
 	log.Println("RegisterNode", nodeConfig.Nodename, localNode.Node.Address, localNode.Node.Services)
 
-	utils.Submit(func() {
+	utils.Go(func() {
 		// 拉去公共节点
 		nodes, _ := localNode.IRegister.QueryNodes()
 		for _, v := range nodes {
@@ -508,7 +508,7 @@ func NodeSend(nodeName string, serviceMethod string, req proto.Message) error {
 	}
 
 	if nodeName == localNode.Config.Nodename {
-		utils.Submit(func() { localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, nil) })
+		utils.Go(func() { localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, nil) })
 		return nil
 	}
 
@@ -548,7 +548,7 @@ func NodeSendWithConn(context *Context, nodeName string, serviceMethod string, r
 	}
 
 	if nodeName == localNode.Config.Nodename {
-		utils.Submit(func() {
+		utils.Go(func() {
 			localNode.Server.InternalCall(context, serviceMethod, req, nil)
 		})
 		return nil
@@ -621,7 +621,7 @@ func Send(context *Context, serviceMethod string, req proto.Message) error {
 	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		utils.Submit(func() {
+		utils.Go(func() {
 			localNode.Server.InternalCall(context, serviceMethod, req, nil)
 		})
 		return nil
@@ -647,7 +647,7 @@ func Broadcast(serviceMethod string, req proto.Message) error {
 	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		utils.Submit(func() {
+		utils.Go(func() {
 			localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, nil)
 		})
 	}
@@ -759,7 +759,7 @@ func JsonSend(context *Context, serviceMethod string, reqBuff []byte) error {
 	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		utils.Submit(func() {
+		utils.Go(func() {
 			localNode.Server.RawCall(context, serviceMethod, reqBuff, true)
 		})
 		return nil
@@ -830,7 +830,7 @@ func RawSend(context *Context, serviceMethod string, reqBuff []byte) error {
 	_, ok := localNode.Services.Load(serviceName)
 	if ok {
 		// 内部调用
-		utils.Submit(func() {
+		utils.Go(func() {
 			localNode.Server.RawCall(context, serviceMethod, reqBuff, false)
 		})
 		return nil
@@ -860,7 +860,7 @@ func CloseCallback(name string, err error) {
 	localNode.RpcClient.Delete(name)
 
 	localNode.Services.Range(func(key string, value GxService) bool {
-		utils.Submit(func() {
+		utils.Go(func() {
 			value.NodeClose(name)
 		})
 		return true
@@ -923,14 +923,14 @@ func SubmitEvent(serviceName, eventName string, args ...interface{}) {
 	if serviceName != "" {
 		v, ok := localNode.Services.Load(serviceName)
 		if ok {
-			utils.Submit(func() {
+			utils.Go(func() {
 				v.OnEvent(eventName, args...)
 			})
 			return
 		}
 	}
 	localNode.Services.Range(func(key string, value GxService) bool {
-		utils.Submit(func() {
+		utils.Go(func() {
 			value.OnEvent(eventName, args...)
 		})
 		return true

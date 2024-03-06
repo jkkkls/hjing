@@ -9,7 +9,7 @@ import (
 	kcp "github.com/xtaci/kcp-go"
 )
 
-func RunKCPServer(port int) error {
+func (gater *Gater) RunKCPServer(port int) error {
 	utils.Info("启动kcp服务器", "port", port)
 	if listener, err := kcp.ListenWithOptions(fmt.Sprintf(":%v", port), nil, 0, 0); err == nil {
 		for {
@@ -24,7 +24,7 @@ func RunKCPServer(port int) error {
 			s.SetStreamMode(true)
 			s.SetWriteDelay(false)
 			s.SetACKNoDelay(true)
-			utils.Submit(func() {
+			utils.Go(func() {
 				gater.handleConn(s, s.RemoteAddr().String(), "kcp")
 			})
 		}

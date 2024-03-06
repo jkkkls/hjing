@@ -23,8 +23,9 @@ func RunApiHttp(port int, params ...HttpParam) error {
 		// end register
 		return nil
 	}).WithPlugin(func(app *rpc.App) error {
-		utils.Submit(func() {
-			err := net.RunApiHttp(config.GetInt("tcpPort"))
+		utils.Go(func() {
+			gater := net.NewGater()
+			err := gater.RunTCPServer(config.GetInt("httpPort"))
 			if err != nil {
 				panic(err)
 			}

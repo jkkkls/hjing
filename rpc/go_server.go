@@ -24,8 +24,10 @@ import (
 
 // Precompute the reflect type for error. Can't use error directly
 // because Typeof takes an empty interface value. This is annoying.
-var typeOfError = reflect.TypeOf((*error)(nil)).Elem()
-var typeOfUint16 = reflect.TypeOf(uint16(0))
+var (
+	typeOfError  = reflect.TypeOf((*error)(nil)).Elem()
+	typeOfUint16 = reflect.TypeOf(uint16(0))
+)
 
 type methodType struct {
 	sync.Mutex // protects counters
@@ -49,7 +51,7 @@ type Request struct {
 	ServiceMethod string // format: "Service.Method"
 	Seq           uint64 // sequence number chosen by client
 	NoResp        bool
-	Conn          *Context //连接信息
+	Conn          *Context // 连接信息
 	next          *Request // for free list in Server
 	Raw           int
 }
@@ -314,7 +316,7 @@ func (server *Server) RawCall(conn *Context, serviceMethod string, reqBuff []byt
 	ret := returnValues[0].Interface().(uint16)
 
 	if server.RpcCallBack != nil {
-		utils.Submit(func() {
+		utils.Go(func() {
 			server.RpcCallBack(conn, serviceMethod, argv.Interface().(proto.Message), replyv.Interface().(proto.Message),
 				ret, nil, time.Since(start))
 		})
@@ -386,7 +388,6 @@ func (s *service) call(server *Server, sending *sync.Mutex, mtype *methodType, r
 	errmsg := "server exception"
 	defer utils.Recover()
 	defer func() {
-
 		if req.NoResp {
 			server.freeRequest(req)
 			return
@@ -421,7 +422,7 @@ func (s *service) call(server *Server, sending *sync.Mutex, mtype *methodType, r
 	ret = returnValues[0].Interface().(uint16)
 
 	if server.RpcCallBack != nil {
-		utils.Submit(func() {
+		utils.Go(func() {
 			server.RpcCallBack(req.Conn, req.ServiceMethod, argv.Interface().(proto.Message), replyv.Interface().(proto.Message),
 				ret, errors.New(errmsg), time.Since(start))
 		})
@@ -459,7 +460,7 @@ func (server *Server) ServeCodec(codec ServerCodec) {
 			}
 			continue
 		}
-		utils.Submit(func() {
+		utils.Go(func() {
 			service.call(server, sending, mtype, req, argv, replyv, codec)
 		})
 	}
@@ -620,7 +621,7 @@ func (server *Server) Accept(lis net.Listener) {
 			return
 		}
 		// log.Println("new rpc client, remote:", conn.RemoteAddr().String())
-		utils.Submit(func() {
+		utils.Go(func() {
 			server.ServeConn(conn)
 		})
 	}
