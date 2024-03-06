@@ -71,6 +71,11 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 
 	file, err := uiFS.Open(path)
 	if err != nil {
+		// try_files $uri $uri/ /index.html;
+		path = "index.html"
+		file, err = uiFS.Open(path)
+	}
+	if err != nil {
 		if os.IsNotExist(err) {
 			log.Println("file", path, "not found:", err)
 			http.NotFound(w, r)
