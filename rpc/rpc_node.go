@@ -212,12 +212,14 @@ func (node *GxNode) handleExit() {
 
 type GxNodeParam func(*GxNode)
 
+// WithExitTime 设置退出时间
 func WithExitTime(d time.Duration) GxNodeParam {
 	return func(node *GxNode) {
 		node.ExitTime = d
 	}
 }
 
+// WithExitTime 注册rpc回调，一般用于监控
 func WithRpcCallBack(cb RpcCallBack) GxNodeParam {
 	return func(node *GxNode) {
 		node.RpcCallBack = cb

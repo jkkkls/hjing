@@ -16,7 +16,7 @@ type EtcdCli struct {
 
 func ConnEtcd(addrs ...string) (*EtcdCli, error) {
 	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   []string{"localhost:2379", "localhost:22379", "localhost:32379"},
+		Endpoints:   addrs,
 		DialTimeout: 5 * time.Second,
 	})
 	if err != nil {
@@ -45,7 +45,6 @@ func (ec *EtcdCli) Watch(key string, f func(string, *config.NodeInfo)) {
 				case clientv3.EventTypeDelete:
 					f(string(ev.Kv.Key), nil)
 				}
-
 			}
 		}
 	})
