@@ -24,17 +24,17 @@ wget https://github.com/protocolbuffers/protobuf/releases/download/v24.4/protoc-
 # 安装protoc-gen-gogu
 # https://gitee.com/jkkkls/protobuf/releases/tag/v1.32.0下载自己需要的版本
 
-# goimports
+# goimports 用于格式化生成代码
 go install golang.org/x/tools/cmd/goimports@latest
 
 # 安装项目工具hjing
 go install github.com/jkkkls/hjing/cmds/hjing@latest
 
-# 安装配置表工具xlsx2proto
+# 安装配置表工具xlsx2proto，用于配置生成代码，不需要可不安装
 go install github.com/jkkkls/hjing/cmds/xlsx2proto@latest
 
-# 安装nodejs yarn, 百度。。。
-
+# 安装nodejs yarn, 用于后台的开发和打包
+# brew install node yarn
 ```
 
 ## 创建一个项目
@@ -79,7 +79,7 @@ cd build
 
 - Landing [落地页前端](https://github.com/jkkkls/Landing.git)
 
-- Axjmin [后台前后端](https://github.com/jkkkls/axjmin.git)
+- Axjmin [后台前后端](https://github.com/jkkkls/axjmin.git), 已经集成到admin模块中
 
 ## 示例
 
@@ -106,8 +106,15 @@ app:
   host: 127.0.0.1
   port: 10002
   type: data
-#修改gate.yaml，增加内网http端口
-
+#修改gate.yaml的节点端口和id，增加内网http端口
+app:
+  id: 3
+  name: gate
+  desc: gate
+  host: 127.0.0.1
+  port: 10003
+  type: gate
+  httpPort: 8081
 
 # 编译admin,data和gate
 $go mod tidy
@@ -237,23 +244,6 @@ func (service *DbService) Set(context *rpc.Context, req *pb.SetReq, rsp *pb.SetR
 ```
 
 6. 重新编译gate和data。依次启动etcd、gate和data. 通过http请求验证接口是否正常。
-``` shell
-# gate.yaml新增rpcapi配置
-app:
-  id: 1
-  name: gate
-  desc: gate
-  host: 127.0.0.1
-  port: 10001
-  type: gate
-  httpPort: 8081
-log:
-  level: 0
-  dir: ./log
-  screen: true
-etcds:
-  - 127.0.0.1:2379
-```
 
 
 ``` shell
