@@ -114,6 +114,8 @@ func MiddleWare() gin.HandlerFunc {
 
 // 初始化
 func Init() *gin.Engine {
+	gin.SetMode(gin.ReleaseMode)
+
 	r := gin.New()
 	r.Use(MiddleWare())
 	for _, opt := range options {

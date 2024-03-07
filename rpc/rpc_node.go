@@ -23,6 +23,7 @@ import (
 
 // GxService 服务接口
 type GxService interface {
+	GetName() string
 	Run() error
 	Exit()
 	NodeConn(string)
@@ -213,10 +214,8 @@ func WithRpcCallBack(cb RpcCallBack) GxNodeParam {
 	}
 }
 
-// 本地节点
-var localNode = &GxNode{}
-
 // NodeConfig 节点配置
+var localNode *GxNode
 
 // InitNode 初始化服务节点
 // @client 服务管理连接
@@ -227,7 +226,7 @@ var localNode = &GxNode{}
 // @port 节点端口
 // @region 所属区域
 // @cmds 注册和uint16的cmd绑定接口，用于游戏网关。原来是通过服务接口最后四个字符标识cmd，现在通过proto文件获取
-func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam) error {
+func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam) (*GxNode, error) {
 	utils.Info("初始化服务节点", "id", nodeConfig.Id, "name", nodeConfig.Nodename, "host", nodeConfig.Host, "port", nodeConfig.Port, "region", nodeConfig.Region)
 
 	// 处理cmd
@@ -237,15 +236,38 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 	}
 	nodeConfig.Cmds = newCmds
 
-	localNode.IRegister = iRegisetr
-	localNode.Config = nodeConfig
-	localNode.ExitTime = 1
-	localNode.connNum = 4
-	localNode.ServiceNode = make(map[string]map[string]bool)
-	localNode.Server = NewServer()
-	localNode.Server.RpcCallBack = localNode.RpcCallBack
-	localNode.Services.Range(func(serviceName string, service GxService) bool {
-		localNode.Server.RegisterName(serviceName, service)
+	node := &GxNode{}
+	node.IRegister = iRegisetr
+	node.Config = nodeConfig
+	node.ExitTime = 1
+	node.connNum = 4
+	node.ServiceNode = make(map[string]map[string]bool)
+	node.Server = NewServer()
+	node.Server.RpcCallBack = node.RpcCallBack
+
+	// 初始化一些全局变量
+	node.IDGen = utils.NewIDGen(nodeConfig.Id)
+	addr := fmt.Sprintf("%v:%v", nodeConfig.Host, nodeConfig.Port)
+	node.Node = &config.NodeInfo{
+		Id:      nodeConfig.Id,
+		Name:    nodeConfig.Nodename,
+		Type:    nodeConfig.Nodetype,
+		Address: addr,
+		Region:  nodeConfig.Region,
+		Set:     nodeConfig.Set,
+	}
+
+	for _, v := range params {
+		v(node)
+	}
+
+	localNode = node
+	return node, nil
+}
+
+func (node *GxNode) Start() {
+	node.Services.Range(func(serviceName string, service GxService) bool {
+		node.Server.RegisterName(serviceName, service)
 		utils.Go(func() {
 			err := service.Run()
 			if err != nil {
@@ -256,44 +278,28 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 		return true
 	})
 
-	for _, v := range params {
-		v(localNode)
-	}
-
-	// 初始化一些全局变量
-	localNode.IDGen = utils.NewIDGen(nodeConfig.Id)
-	addr := fmt.Sprintf("%v:%v", nodeConfig.Host, nodeConfig.Port)
-	listenPort := fmt.Sprintf(":%v", nodeConfig.Port)
-	localNode.Node = &config.NodeInfo{
-		Id:      nodeConfig.Id,
-		Name:    nodeConfig.Nodename,
-		Type:    nodeConfig.Nodetype,
-		Address: addr,
-		Region:  nodeConfig.Region,
-		Set:     nodeConfig.Set,
-	}
-
+	nodeConfig := node.Config
 	// 注册节点信息
-	localNode.Services.Range(func(name string, service GxService) bool {
-		localNode.Node.Services = append(localNode.Node.Services, name)
+	node.Services.Range(func(name string, service GxService) bool {
+		node.Node.Services = append(node.Node.Services, name)
 		return true
 	})
-	localNode.IRegister.RegNode(localNode.Node)
-	log.Println("RegisterNode", nodeConfig.Nodename, localNode.Node.Address, localNode.Node.Services)
+	node.IRegister.RegNode(node.Node)
+	log.Println("注册节点", nodeConfig.Nodename, node.Node.Address, node.Node.Services)
 
 	utils.Go(func() {
 		// 拉去公共节点
-		nodes, _ := localNode.IRegister.QueryNodes()
+		nodes, _ := node.IRegister.QueryNodes()
 		for _, v := range nodes {
 			if v.Set != "" && v.Set != nodeConfig.Set {
 				continue
 			}
 			log.Println("Get All global Node", v.Name, v.Address)
-			localNode.connectNode(v)
+			node.connectNode(v)
 		}
 	})
 
-	//
+	// 内部
 	if nodeConfig.HttpPort != 0 {
 		go func() {
 			err := RunHttpGateway(nodeConfig.HttpPort)
@@ -304,14 +310,16 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 		}()
 	}
 
+	listenPort := fmt.Sprintf(":%v", nodeConfig.Port)
 	l, err := net.Listen("tcp", listenPort)
 	if err != nil {
 		fmt.Println("listen error", err)
-		return err
+		return
 	}
-	localNode.Server.Accept(l)
 
-	return nil
+	utils.Go(func() {
+		node.Server.Accept(l)
+	})
 }
 
 // RangeNode 遍历节点
@@ -340,16 +348,16 @@ func (node *GxNode) QueryNodeStatus() []*GxNodeConn {
 }
 
 // ConnectNewNode 尝试连接新节点
-func ConnectNewNode(name string) {
-	info, _ := localNode.IRegister.QueryNode(name)
-	if info != nil && (info.Set == "" || info.Set == localNode.Config.Set) {
-		localNode.connectNode(info)
+func (node *GxNode) ConnectNewNode(name string) {
+	info, _ := node.IRegister.QueryNode(name)
+	if info != nil && (info.Set == "" || info.Set == node.Config.Set) {
+		node.connectNode(info)
 	}
 }
 
 // DisconnectNode 断开节点连接
-func DisconnectNode(name string) {
-	nodeInfo, ok := localNode.RpcClient.Load(name)
+func (node *GxNode) DisconnectNode(name string) {
+	nodeInfo, ok := node.RpcClient.Load(name)
 	if ok {
 		for _, v := range nodeInfo.Conns {
 			if v != nil {
@@ -357,7 +365,7 @@ func DisconnectNode(name string) {
 			}
 		}
 		nodeInfo.Close = true
-		localNode.RpcClient.Delete(name)
+		node.RpcClient.Delete(name)
 
 		utils.Info("删除节点", "nodeName", name)
 	}
@@ -420,16 +428,16 @@ func getNode(nodeName string) *Client {
 }
 
 // GetNode 获取指定节点的rpc连接实例
-func GetNode(nodeName string) *Client {
-	localNode.Mutex.Lock()
-	defer localNode.Mutex.Unlock()
+func (node *GxNode) GetNode(nodeName string) *Client {
+	node.Mutex.Lock()
+	defer node.Mutex.Unlock()
 
 	return getNode(nodeName)
 }
 
 // RegisterService 注册服务
-func RegisterService(serviceName string, service GxService) {
-	localNode.Services.Store(serviceName, service)
+func (node *GxNode) RegisterService(service GxService) {
+	node.Services.Store(service.GetName(), service)
 }
 
 // NodeCall 节点rpc调用
@@ -444,7 +452,7 @@ func NodeCall(nodeName string, serviceMethod string, req proto.Message, rsp prot
 		return localNode.Server.InternalCall(EmptyContext(), serviceMethod, req, rsp)
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		return node.Call(EmptyContext(), serviceMethod, req, rsp)
 	}
@@ -461,7 +469,7 @@ func NodeJsonCallWithConn(context *Context, nodeName string, serviceMethod strin
 		return localNode.Server.RawCall(context, serviceMethod, reqBuff, true)
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		return node.JsonCall(context, serviceMethod, reqBuff)
 	}
@@ -478,7 +486,7 @@ func NodeRawCallWithConn(context *Context, nodeName string, serviceMethod string
 		return localNode.Server.RawCall(context, serviceMethod, reqBuff, false)
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		return node.RawCall(context, serviceMethod, reqBuff)
 	}
@@ -497,7 +505,7 @@ func NodeSend(nodeName string, serviceMethod string, req proto.Message) error {
 		return nil
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		node.Send(EmptyContext(), serviceMethod, req)
 		return nil
@@ -518,7 +526,7 @@ func NodeCallWithConn(context *Context, nodeName string, serviceMethod string, r
 		return localNode.Server.InternalCall(context, serviceMethod, req, rsp)
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		return node.Call(context, serviceMethod, req, rsp)
 	}
@@ -539,7 +547,7 @@ func NodeSendWithConn(context *Context, nodeName string, serviceMethod string, r
 		return nil
 	}
 
-	node := GetNode(nodeName)
+	node := localNode.GetNode(nodeName)
 	if node != nil {
 		node.Send(context, serviceMethod, req)
 		return nil

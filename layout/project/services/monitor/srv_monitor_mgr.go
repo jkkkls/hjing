@@ -16,9 +16,14 @@ var (
 // MonitorMgrService 进程监控管理服务
 type MonitorMgrService struct{}
 
+func (service *MonitorMgrService) GetName() string                       { return "MonitorMgr" }
 func (service *MonitorMgrService) NodeConn(name string)                  {}
 func (service *MonitorMgrService) NodeClose(name string)                 {}
 func (service *MonitorMgrService) OnEvent(eventName string, args ...any) {}
+
+func NewMonitorMgrService() *MonitorMgrService {
+	return &MonitorMgrService{}
+}
 
 // Exit 退出处理
 func (service *MonitorMgrService) Exit() {}

@@ -9,7 +9,7 @@ import (
 var (
 	wdDB   *db.MysqlDB
 	models = []any{
-		//end models
+		// end models
 	}
 )
 

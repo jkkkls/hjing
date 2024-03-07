@@ -13,9 +13,9 @@ import (
 )
 
 var (
-	svcRegMask    = []byte("//end register")
-	svcImportMask = []byte("//end import")
-	modelRegMask  = []byte("//end models")
+	svcRegMask    = []byte("// end register")
+	svcImportMask = []byte("// end import")
+	modelRegMask  = []byte("// end models")
 )
 
 func getDomainFromGoMod() (string, error) {
@@ -70,7 +70,7 @@ var CmdAddSrv = &cobra.Command{
 		}
 		if !bytes.Contains(buff, svcRegMask) || !bytes.Contains(buff, svcImportMask) {
 			cmd.Usage()
-			color.Red("main.json format error")
+			color.Red("main.go format error")
 			return
 		}
 
@@ -89,22 +89,22 @@ var CmdAddSrv = &cobra.Command{
 			return
 		}
 
-		//替换引用
+		// 替换引用
 		newContent := fmt.Sprintf(`"%v/services/%v"
 		%v`,
 			domain, svcName, string(svcImportMask))
 		buff = bytes.ReplaceAll(buff, svcImportMask, []byte(newContent))
 
-		//注册服务
-		newContent = fmt.Sprintf(`rpc.RegisterService("%v", &%v.%vService{})
+		// 注册服务
+		newContent = fmt.Sprintf(`WithRegister(%v.New%vService()).
 		%v`,
-			upSvcName, svcName, upSvcName, string(svcRegMask))
+			svcName, upSvcName, string(svcRegMask))
 		buff = bytes.ReplaceAll(buff, svcRegMask, []byte(newContent))
-		os.WriteFile(mainFile, buff, 0644)
+		os.WriteFile(mainFile, buff, 0o644)
 
 		utils.ExecCmd("", "go", "fmt", mainFile)
 
-		//生成服务模版
+		// 生成服务模版
 		err = layout.CopyFile("app/service.go.tpl", "services/"+svcName+"/service.go", "{{lowServiceName}}", svcName, "{{serviceName}}", upSvcName)
 		if err != nil {
 			cmd.Usage()

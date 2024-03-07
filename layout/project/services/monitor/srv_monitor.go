@@ -8,7 +8,9 @@ import (
 	"time"
 	"{{projectName}}/pb"
 
+	"github.com/jkkkls/hjing/config"
 	"github.com/jkkkls/hjing/rpc"
+	"github.com/jkkkls/hjing/utils"
 	"github.com/shirou/gopsutil/v3/process"
 )
 
@@ -24,9 +26,21 @@ type MonitorService struct {
 	Time      uint64
 }
 
+func (service *MonitorService) GetName() string                       { return "Monitor" }
 func (service *MonitorService) NodeConn(name string)                  {}
 func (service *MonitorService) NodeClose(name string)                 {}
 func (service *MonitorService) OnEvent(eventName string, args ...any) {}
+
+func NewMonitorService() *MonitorService {
+	return &MonitorService{
+		Name:      config.ConfInstance.App.Name,
+		GitSHA:    rpc.GitSHA,
+		PcName:    rpc.PcName,
+		BuildTime: rpc.BuildTime,
+		GitTag:    rpc.GitTag,
+		Time:      utils.Now(),
+	}
+}
 
 // Exit 退出处理
 func (service *MonitorService) Exit() {}

@@ -4,6 +4,11 @@ package {{lowServiceName}}
 type {{serviceName}}Service struct {
 }
 
+func New{{serviceName}}Service() *{{serviceName}}Service {
+	return &{{serviceName}}Service{}
+}
+
+func (service *{{serviceName}}Service) GetName() string                    { return "{{serviceName}}" }
 func (service *{{serviceName}}Service) NodeConn(name string)                  {}
 func (service *{{serviceName}}Service) NodeClose(name string)                 {}
 func (service *{{serviceName}}Service) OnEvent(eventName string, args ...any) {}

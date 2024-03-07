@@ -25,7 +25,7 @@ var (
 
 type App struct {
 	plugins      []AppParam
-	services     []AppParam
+	services     []GxService
 	configName   string
 	logParams    []utils.LogParam
 	rpcNodeParam []GxNodeParam
@@ -69,8 +69,8 @@ func (app *App) WithPlugin(f func(app *App) error) *App {
 
 // WithRegister 函数接收一个函数作为参数，该函数接收一个App指针作为参数，返回一个error。
 // WithRegister函数将传入的函数添加到App结构体的services切片中，并返回App指针。
-func (app *App) WithRegister(f func(app *App) error) *App {
-	app.services = append(app.services, f)
+func (app *App) WithRegister(service GxService) *App {
+	app.services = append(app.services, service)
 	return app
 }
 
@@ -122,6 +122,20 @@ func (app *App) Run() {
 	// pid文件
 	os.WriteFile("./"+nodeConfig.App.Name+".pid", []byte(strconv.Itoa(os.Getpid())), 0o666)
 
+	node, err := InitNode(app.iRegister, &NodeConfig{
+		Id:       nodeConfig.App.Id,
+		Nodename: nodeConfig.App.Name,
+		Nodetype: nodeConfig.App.Type,
+		Host:     nodeConfig.App.Host,
+		Port:     nodeConfig.App.Port,
+		Cmds:     app.cmds,
+		HttpPort: nodeConfig.App.HttpPort,
+	}, app.rpcNodeParam...)
+	if err != nil {
+		fmt.Println("初始化rpc node失败", err.Error())
+		return
+	}
+
 	// 初始化插件
 	for _, v := range app.plugins {
 		err = v(app)
@@ -143,19 +157,15 @@ func (app *App) Run() {
 		arr := strings.Split(key, ":")
 		name := arr[len(arr)-1]
 		if info == nil {
-			DisconnectNode(name)
+			node.DisconnectNode(name)
 		} else {
-			ConnectNewNode(name)
+			node.ConnectNewNode(name)
 		}
 	})
 
 	// 初始化服务
 	for _, v := range app.services {
-		err = v(app)
-		if err != nil {
-			fmt.Println("初始化服务失败", err.Error())
-			return
-		}
+		node.RegisterService(v)
 	}
 
 	ctx := context.Background()
@@ -163,22 +173,12 @@ func (app *App) Run() {
 	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// rpc节点服务
-	utils.Go(func() {
-		InitNode(app.iRegister, &NodeConfig{
-			Id:       nodeConfig.App.Id,
-			Nodename: nodeConfig.App.Name,
-			Nodetype: nodeConfig.App.Type,
-			Host:     nodeConfig.App.Host,
-			Port:     nodeConfig.App.Port,
-			Cmds:     app.cmds,
-			HttpPort: nodeConfig.App.HttpPort,
-		}, app.rpcNodeParam...)
-	})
+	node.Start()
 
 	select {
 	case <-signalChan:
 	case <-ctx.Done():
 	}
 
-	localNode.Exit()
+	node.Exit()
 }
