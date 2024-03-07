@@ -29,6 +29,7 @@ fi
 echo "os: $os arch: $arch"
 echo "path: $dir"
 
+#安装supervisord
 supervisord=$(which supervisord)
 if [[ ${supervisord} == "" ]]; then
     echo "supervisord not found"
@@ -37,3 +38,14 @@ if [[ ${supervisord} == "" ]]; then
     curl -L ${download_url} > /tmp/supervisord.zip
     sudo unzip /tmp/supervisord.zip -d /usr/local/bin
 fi
+
+#
+mkdir -p $dir/apps/bins
+mkdir -p $dir/apps/logs
+mkdir -p $dir/apps/conf
+mkdir -p $dir/update
+
+# 复制常用脚本
+
+# 复制程序，配置
+
