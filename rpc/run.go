@@ -1,11 +1,14 @@
 package rpc
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/jkkkls/hjing/config"
 	"github.com/jkkkls/hjing/utils"
@@ -155,14 +158,27 @@ func (app *App) Run() {
 		}
 	}
 
+	ctx := context.Background()
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
+
 	// rpc节点服务
-	InitNode(app.iRegister, &NodeConfig{
-		Id:       nodeConfig.App.Id,
-		Nodename: nodeConfig.App.Name,
-		Nodetype: nodeConfig.App.Type,
-		Host:     nodeConfig.App.Host,
-		Port:     nodeConfig.App.Port,
-		Cmds:     app.cmds,
-		HttpPort: nodeConfig.App.HttpPort,
-	}, app.rpcNodeParam...)
+	utils.Go(func() {
+		InitNode(app.iRegister, &NodeConfig{
+			Id:       nodeConfig.App.Id,
+			Nodename: nodeConfig.App.Name,
+			Nodetype: nodeConfig.App.Type,
+			Host:     nodeConfig.App.Host,
+			Port:     nodeConfig.App.Port,
+			Cmds:     app.cmds,
+			HttpPort: nodeConfig.App.HttpPort,
+		}, app.rpcNodeParam...)
+	})
+
+	select {
+	case <-signalChan:
+	case <-ctx.Done():
+	}
+
+	localNode.Exit()
 }

@@ -1,7 +1,6 @@
 package monitor
 
 import (
-	"log"
 	"sync"
 	"{{projectName}}/pb"
 
@@ -31,7 +30,6 @@ func (service *MonitorMgrService) Run() error {
 
 func (service *MonitorMgrService) UpdateMonitor(conn *rpc.Context, req *pb.UpdateMonitorReq, rsp proto.Message) (uint16, error) {
 	Processes.Store(req.Process.Name, req.Process)
-	log.Println("----> UpdateMonitor", req.Process)
 	return 0, nil
 }
 

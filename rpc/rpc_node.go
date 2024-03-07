@@ -11,10 +11,8 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/jkkkls/hjing/config"
@@ -187,26 +185,15 @@ func (node *GxNode) connectNode(info *config.NodeInfo) {
 	}
 }
 
-// handleExit 退出处理
-func (node *GxNode) handleExit() {
-	// 信号处理，程序退出统一使用kill -2
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM)
-
-	utils.Go(func() {
-		<-signalChan
-
-		node.IRegister.DelNode(node.Config.Nodename)
-
-		node.Services.Range(func(key string, value GxService) bool {
-			utils.Go(func() {
-				value.Exit()
-			})
-			return true
+// Exit 退出处理
+// 信号处理，程序退出统一使用kill -2
+func (node *GxNode) Exit() {
+	node.IRegister.DelNode(node.Config.Nodename)
+	node.Services.Range(func(key string, value GxService) bool {
+		utils.Go(func() {
+			value.Exit()
 		})
-
-		time.Sleep(node.ExitTime * time.Second)
-		os.Exit(0)
+		return true
 	})
 }
 
@@ -272,8 +259,6 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 	for _, v := range params {
 		v(localNode)
 	}
-
-	localNode.handleExit()
 
 	// 初始化一些全局变量
 	localNode.IDGen = utils.NewIDGen(nodeConfig.Id)
