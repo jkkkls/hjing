@@ -3,8 +3,10 @@ package layout
 import (
 	"bytes"
 	"embed"
-	"github.com/jkkkls/hjing/utils"
 	"os"
+	"strings"
+
+	"github.com/jkkkls/hjing/utils"
 )
 
 //go:embed app
@@ -22,7 +24,7 @@ func CopyFile(fileName, dstFile string, args ...string) error {
 		buff = bytes.ReplaceAll(buff, []byte(args[i*2]), []byte(args[i*2+1]))
 	}
 
-	return os.WriteFile(dstFile, buff, 0644)
+	return os.WriteFile(dstFile, buff, 0o644)
 }
 
 // CopyDir 递归复制embed中的指定目录
@@ -35,7 +37,7 @@ func CopyDir(srcDir, dstDir string, args ...string) error {
 		if v.IsDir() {
 			newDir := dstDir + "/" + v.Name()
 			if !utils.PathExists(newDir) {
-				err := os.MkdirAll(newDir, 0755)
+				err := os.MkdirAll(newDir, 0o755)
 				if err != nil {
 					return err
 				}
@@ -46,7 +48,7 @@ func CopyDir(srcDir, dstDir string, args ...string) error {
 			}
 			continue
 		}
-		err := CopyFile(srcDir+"/"+v.Name(), dstDir+"/"+v.Name(), args...)
+		err := CopyFile(srcDir+"/"+v.Name(), dstDir+"/"+strings.TrimSuffix(v.Name(), ".tpl"), args...)
 		if err != nil {
 			return err
 		}

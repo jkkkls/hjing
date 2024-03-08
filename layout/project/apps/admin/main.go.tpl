@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/jkkkls/test_app/services/monitor"
-	"github.com/jkkkls/test_app/services/web_backend"
+	"{{projectName}}/services/monitor"
+	"{{projectName}}/services/web_backend"
 
 	"github.com/jkkkls/hjing/rpc"
 	// end import
