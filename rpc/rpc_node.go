@@ -9,11 +9,11 @@ package rpc
 import (
 	"fmt"
 	"log"
+	"math/rand/v2"
 	"net"
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/jkkkls/hjing/config"
 	"github.com/jkkkls/hjing/utils"
@@ -55,16 +55,39 @@ type GxNodeConn struct {
 	Close bool
 }
 
+// Rand2Num 生成两个不同的随机数
+func Rand2Num(n int) (int, int) {
+	if n == 1 {
+		return 0, 0
+	} else if n == 2 {
+		return 0, 1
+	}
+
+	x := []int{}
+	for i := 0; i < n; i++ {
+		x = append(x, i)
+	}
+	index := rand.IntN(len(x))
+	i1 := x[index]
+	x = append(x[:index], x[index+1:]...)
+	i2 := x[rand.IntN(len(x))]
+	return i1, i2
+}
+
+// getConn 随机选择两个随机数，再选择一个负载少的连接
 func (conn *GxNodeConn) getConn() *Client {
 	n := len(conn.Conns)
-	index := -1
+	i1, i2 := Rand2Num(n)
 	conn.Mutex.Lock()
-	for i := 0; i < n; i++ {
-		if index == -1 || conn.UseTime[index] > conn.UseTime[i] {
-			index = i
+	index := utils.If(conn.UseTime[i1] > conn.UseTime[i2], i2, i1)
+	conn.UseTime[index]++
+
+	// 重置
+	if conn.UseTime[index] > 1>>30 {
+		for i := 0; i < n; i++ {
+			conn.UseTime[i] = 0
 		}
 	}
-	conn.UseTime[index] = time.Now().UnixMilli()
 	conn.Mutex.Unlock()
 
 	return conn.Conns[index]
@@ -74,22 +97,12 @@ func (conn *GxNodeConn) getConn() *Client {
 type GxNode struct {
 	IRegister IRegister
 	Config    *NodeConfig
-	// Id       uint64   //自己的节点名
-	// Name     string   //自己的节点名
-	// Type     string   //自己的节点名
-	Server   *Server                      // 自己rpc服务端
-	Services utils.Map[string, GxService] // 自己的服务列表
-
-	// EtcdCli *etcdapi.EtcdCli //watch客户端
-
+	Server    *Server                        // 自己rpc服务端
+	Services  utils.Map[string, GxService]   // 自己的服务列表
 	RpcClient utils.Map[string, *GxNodeConn] // 到其他节点的连接
 
-	// ServiceNode sync.Map               //服务对应节点名
 	Mutex       sync.Mutex
 	ServiceNode map[string]map[string]bool // 服务对应节点名
-	// Region      uint32
-	// Set         string
-	ExitTime time.Duration
 
 	// 全局变量
 	IDGen *utils.IDGen
@@ -200,13 +213,6 @@ func (node *GxNode) Exit() {
 
 type GxNodeParam func(*GxNode)
 
-// WithExitTime 设置退出时间
-func WithExitTime(d time.Duration) GxNodeParam {
-	return func(node *GxNode) {
-		node.ExitTime = d
-	}
-}
-
 // WithExitTime 注册rpc回调，一般用于监控
 func WithRpcCallBack(cb RpcCallBack) GxNodeParam {
 	return func(node *GxNode) {
@@ -239,7 +245,6 @@ func InitNode(iRegisetr IRegister, nodeConfig *NodeConfig, params ...GxNodeParam
 	node := &GxNode{}
 	node.IRegister = iRegisetr
 	node.Config = nodeConfig
-	node.ExitTime = 1
 	node.connNum = 4
 	node.ServiceNode = make(map[string]map[string]bool)
 	node.Server = NewServer()

@@ -2,39 +2,21 @@ package utils
 
 // Copyright 2017 guangbo. All rights reserved.
 
-//常用接口
+// 常用接口
 
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 	"os"
+	"os/exec"
 	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/constraints"
 )
-
-// SendHttpRequest 发送http请求
-func SendHttpRequest(method string, url string, body string) ([]byte, error) {
-	client := &http.Client{}
-	req, err1 := http.NewRequest(method, url, strings.NewReader(body))
-	if err1 != nil {
-		return nil, err1
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
-
-	resp, err2 := client.Do(req)
-	if err2 != nil {
-		return nil, err2
-	}
-	defer resp.Body.Close()
-
-	return ioutil.ReadAll(resp.Body)
-}
 
 // PathExists 目录是否存在
 func PathExists(path string) bool {
@@ -76,24 +58,6 @@ func ExportServiceFunction(u interface{}) map[uint16]string {
 	}
 
 	return funcs
-}
-
-func InIntArray(array []int, key int) bool {
-	for i := 0; i < len(array); i++ {
-		if (array)[i] == key {
-			return true
-		}
-	}
-	return false
-}
-
-func InArray(array *[]string, key string) bool {
-	for i := 0; i < len(*array); i++ {
-		if (*array)[i] == key {
-			return true
-		}
-	}
-	return false
 }
 
 // Now 返回当前时间戳
@@ -198,57 +162,12 @@ func STT(str string) int64 {
 }
 
 // If 三目操作模拟函数
-func If(x bool, a interface{}, b interface{}) interface{} {
+func If[T comparable](x bool, a T, b T) T {
 	if x {
 		return a
 	}
 
 	return b
-}
-
-// SubUint32Array ...
-func SubUint32Array(arr1, arr2 []uint32) []uint32 {
-	var arr []uint32
-	for i := 0; i < len(arr1); i++ {
-		if !InUint32Array(arr2, arr1[i]) {
-			arr = append(arr, arr1[i])
-		}
-	}
-
-	return arr
-}
-
-// InUint16Array n是否存在指定数组中
-func InUint16Array(array []uint16, n uint16) bool {
-	for i := 0; i < len(array); i++ {
-		if n == array[i] {
-			return true
-		}
-	}
-
-	return false
-}
-
-// InUint32Array n是否存在指定数组中
-func InUint32Array(array []uint32, n uint32) bool {
-	for i := 0; i < len(array); i++ {
-		if n == array[i] {
-			return true
-		}
-	}
-
-	return false
-}
-
-// InUint64Array n是否存在指定数组中
-func InUint64Array(array []uint64, n uint64) bool {
-	for i := 0; i < len(array); i++ {
-		if n == array[i] {
-			return true
-		}
-	}
-
-	return false
 }
 
 // GetWeekRange 获取指定周日期返回，i表示查询第几周，i=0表示查询本周
@@ -267,184 +186,9 @@ func GetWeekRange(i int) (string, string) {
 	return begin.Format("2006-01-02"), end.Format("2006-01-02")
 }
 
-func CopyInt64Array(src []int64) []int64 {
-	if len(src) == 0 {
-		return []int64{}
-	}
-	dst := make([]int64, len(src))
-	copy(dst, src)
-
-	return dst
-}
-
-func CopyUInt64Array(src []uint64) []uint64 {
-	if len(src) == 0 {
-		return []uint64{}
-	}
-	dst := make([]uint64, len(src))
-	copy(dst, src)
-
-	return dst
-}
-
-func CopyUInt32Array(src []uint32) []uint32 {
-	if len(src) == 0 {
-		return []uint32{}
-	}
-	dst := make([]uint32, len(src))
-	copy(dst, src)
-
-	return dst
-}
-
-func EqualUInt32Array(arr1 []uint32, arr2 []uint32) bool {
-	if len(arr1) != len(arr2) {
-		return false
-	}
-
-	for i := 0; i < len(arr1); i++ {
-		ok := false
-		for j := 0; j < len(arr2); j++ {
-			if arr1[i] == arr2[j] {
-				ok = true
-				break
-			}
-		}
-
-		if !ok {
-			return false
-		}
-	}
-
-	return true
-}
-
-// CopyInt32Array 复制一个数组
-func CopyInt32Array(src []int32) []int32 {
-	if len(src) == 0 {
-		return []int32{}
-	}
-	dst := make([]int32, len(src))
-	copy(dst, src)
-
-	return dst
-}
-
-// EqualInt32Array 两个数组是否相等
-func EqualInt32Array(arr1 []int32, arr2 []int32) bool {
-	if len(arr1) != len(arr2) {
-		return false
-	}
-
-	for i := 0; i < len(arr1); i++ {
-		ok := false
-		for j := 0; j < len(arr2); j++ {
-			if arr1[i] == arr2[j] {
-				ok = true
-				break
-			}
-		}
-
-		if !ok {
-			return false
-		}
-	}
-
-	return true
-}
-
 // IsSameDay 两个时间戳是否同一天
 func IsSameDay(t1, t2 uint64) bool {
 	return time.Unix(int64(t1), 0).Format("2006-01-02") == time.Unix(int64(t2), 0).Format("2006-01-02")
-}
-
-// UnquieInsert ...
-func UnquieInsert(arr *[]string, v ...string) bool {
-	count := 0
-	for i := 0; i < len(v); i++ {
-		find := false
-		for j := 0; j < len(*arr); j++ {
-			if (*arr)[j] == v[i] {
-				find = true
-				break
-			}
-		}
-
-		if !find {
-			*arr = append(*arr, v[i])
-			count++
-		}
-	}
-
-	return count == 0
-}
-
-// UnquieInsertUInt64 ...
-func UnquieInsertUInt64(arr *[]uint64, v ...uint64) {
-	for i := 0; i < len(v); i++ {
-		find := false
-		for j := 0; j < len(*arr); j++ {
-			if (*arr)[j] == v[i] {
-				find = true
-				break
-			}
-		}
-
-		if !find {
-			*arr = append(*arr, v[i])
-		}
-	}
-}
-
-// UnquieInsertUInt32 ...
-func UnquieInsertUInt32(arr *[]uint32, v ...uint32) {
-	for i := 0; i < len(v); i++ {
-		find := false
-		for j := 0; j < len(*arr); j++ {
-			if (*arr)[j] == v[i] {
-				find = true
-				break
-			}
-		}
-
-		if !find {
-			*arr = append(*arr, v[i])
-		}
-	}
-}
-
-// UnquieInsertInt32 ...
-func UnquieInsertInt32(arr *[]int32, v ...int32) {
-	for i := 0; i < len(v); i++ {
-		find := false
-		for j := 0; j < len(*arr); j++ {
-			if (*arr)[j] == v[i] {
-				find = true
-				break
-			}
-		}
-
-		if !find {
-			*arr = append(*arr, v[i])
-		}
-	}
-}
-
-// RemoveUInt64Array ...
-func RemoveUInt64Array(arr *[]uint64, v ...uint64) {
-	for i := 0; i < len(v); i++ {
-		index := -1
-		for j := 0; j < len(*arr); j++ {
-			if (*arr)[j] == v[i] {
-				index = j
-				break
-			}
-		}
-
-		if index >= 0 {
-			*arr = append((*arr)[:index], (*arr)[index+1:]...)
-		}
-	}
 }
 
 // RemBit ...
@@ -462,113 +206,18 @@ func GetBit(mask, i uint32) bool {
 	return mask&(1<<i) != 0
 }
 
-// In 判断元素是否在数组中
-func In(arr interface{}, v interface{}) (bool, error) {
-	sVal := reflect.ValueOf(arr)
-	kind := sVal.Kind()
-	if kind == reflect.Slice || kind == reflect.Array {
-		for i := 0; i < sVal.Len(); i++ {
-			if sVal.Index(i).Interface() == v {
-				return true, nil
-			}
-		}
-
-		return false, nil
-	}
-
-	return false, fmt.Errorf("unsupport type")
-}
-
-// Uint32ArrayRepeat ...
-func Uint32ArrayRepeat(arr1, arr2 []uint32) bool {
-	for i := 0; i < len(arr1); i++ {
-		for j := 0; j < len(arr2); j++ {
-			if arr1[i] == arr2[j] {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
 // Uint64ArratToString ...
-func Uint64ArratToString(arr []uint64, sep string) string {
+func ArrayToString[T any](arr []T, sep string) string {
 	var buffer bytes.Buffer
 	for i := 0; i < len(arr); i++ {
 		if i > 0 {
 			buffer.WriteString(sep)
 		}
 
-		buffer.WriteString(strconv.FormatUint(arr[i], 10))
+		buffer.WriteString(fmt.Sprint(arr[i]))
 	}
 
 	return buffer.String()
-}
-
-// Int64ArratToString ...
-func Int64ArratToString(arr []int64, sep string) string {
-	var buffer bytes.Buffer
-	for i := 0; i < len(arr); i++ {
-		if i > 0 {
-			buffer.WriteString(sep)
-		}
-
-		buffer.WriteString(strconv.FormatInt(arr[i], 10))
-	}
-
-	return buffer.String()
-}
-
-// 2019-01-01 00:00:00 时间戳
-const (
-	ChinaLocTime   = 1546272000
-	VietnamLocTime = 1546275600
-	// HoChiMinhLocKey 越南时区
-	HoChiMinhLocKey = "Asia/Ho_Chi_Minh"
-)
-
-// GetVietnamDay 获取越南从2019-01-01 00:00:00到ts经历的天数
-func GetVietnamDay(ts uint64) uint64 {
-	return (ts - VietnamLocTime) / (24 * 3600)
-}
-
-// GetVietnamDate 获取越南日期格式
-func GetVietnamDate(ts uint64) string {
-	HoChiMinhLoc, _ := time.LoadLocation(HoChiMinhLocKey)
-	return time.Unix(int64(ts), 0).In(HoChiMinhLoc).Format("2006-01-02")
-}
-
-// GetVietnamDateTime 获取越南日期格式
-func GetVietnamDateTime(ts uint64) string {
-	HoChiMinhLoc, _ := time.LoadLocation(HoChiMinhLocKey)
-	return time.Unix(int64(ts), 0).In(HoChiMinhLoc).Format("2006-01-02 15:04:05")
-}
-
-// GetVietnamBeginAndEndDateTime 获取指定日期越南开始结束日期的本地时间
-func GetVietnamBeginAndEndDateTime(ts uint64) (string, string) {
-	HoChiMinhLoc, _ := time.LoadLocation(HoChiMinhLocKey)
-
-	now := time.Now()
-	beginDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, HoChiMinhLoc)
-	beginDayStr := beginDay.In(time.Local).Format("2006-01-02 15:04:05")
-	endDate := time.Date(now.Year(), now.Month(), now.Day(), 23, 59, 59, 0, HoChiMinhLoc)
-	endDateStr := endDate.In(time.Local).Format("2006-01-02 15:04:05")
-
-	return beginDayStr, endDateStr
-}
-
-// JoinUint64Array ...
-func JoinUint64Array(arr []uint64, sep string) string {
-	var b strings.Builder
-	for i, u := range arr {
-		if i != 0 {
-			b.WriteString(sep)
-		}
-		b.WriteString(fmt.Sprintf("%v", u))
-	}
-
-	return b.String()
 }
 
 // GetVersionFromStr ...
@@ -628,4 +277,37 @@ func ProtectCall(f func(), failFunc func()) {
 	}()
 
 	f()
+}
+
+// FixRange 矫正数值, 必须大于等于下限，小于等于上限
+func FixRange[T constraints.Integer | constraints.Float](arr ...T) T {
+	var empty T
+	if len(arr) == 0 {
+		return empty
+	} else if len(arr) == 1 {
+		return arr[0]
+	} else if len(arr) >= 2 && arr[0] < arr[1] {
+		return arr[1]
+	} else if len(arr) >= 3 && arr[0] > arr[2] {
+		return arr[2]
+	}
+
+	return arr[0]
+}
+
+func ExecCmd(dir, cmd string, args ...string) (string, error) {
+	command := exec.Command(cmd, args...)
+	command.Dir = dir
+	// 给标准输入以及标准错误初始化一个buffer，每条命令的输出位置可能是不一样的，
+	// 比如有的命令会将输出放到stdout，有的放到stderr
+	command.Stdout = &bytes.Buffer{}
+	command.Stderr = &bytes.Buffer{}
+
+	err := command.Run()
+	if err != nil {
+		// 打印程序中的错误以及命令行标准错误中的输出
+		return command.Stderr.(*bytes.Buffer).String(), err
+	}
+	// 打印命令行的标准输出
+	return command.Stdout.(*bytes.Buffer).String(), nil
 }
