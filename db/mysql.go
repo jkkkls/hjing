@@ -26,7 +26,7 @@ type Mock struct {
 
 type MysqlDB struct {
 	DB   *gorm.DB
-	Mock *Mock //测试数据
+	Mock *Mock // 测试数据
 }
 
 func openDB(dsn, dbName string) (*gorm.DB, error) {
@@ -35,12 +35,12 @@ func openDB(dsn, dbName string) (*gorm.DB, error) {
 			TablePrefix:   "tb_",
 			SingularTable: true,
 		},
-		//Logger: logger.Default.LogMode(logger.Info),
+		// Logger: logger.Default.LogMode(logger.Info),
 	}
-	//注册json标签处理逻辑
+	// 注册json标签处理逻辑
 	schema.RegisterSerializer("json", JSONSerializer{})
 
-	//自带db参数
+	// 自带db参数
 	if !strings.Contains(dsn, "/?") {
 		return gorm.Open(mysql.Open(dsn), conf)
 	}
@@ -53,7 +53,7 @@ func openDB(dsn, dbName string) (*gorm.DB, error) {
 		return db, nil
 	}
 
-	//创建数据库
+	// 创建数据库
 	temp, err := gorm.Open(mysql.Open(dsn))
 	if err != nil {
 		return nil, errors.Wrap(err, "gorm.Open: "+dsn)
@@ -87,7 +87,7 @@ func InitMysql(dsn, dbName string, tables []interface{}, results ...*MockResult)
 		return nil, errors.Wrap(err, "gorm.Open")
 	}
 
-	//初始化表
+	// 初始化表
 	err = md.DB.AutoMigrate(tables...)
 	if err != nil {
 		return nil, err
@@ -105,7 +105,7 @@ func deepCopy(dst, src interface{}) error {
 }
 
 func (md *MysqlDB) Exec(sql string, values ...interface{}) error {
-	//mock
+	// mock
 	if md.Mock != nil {
 		return nil
 	}
@@ -115,7 +115,7 @@ func (md *MysqlDB) Exec(sql string, values ...interface{}) error {
 
 // QueryOne 查找用户
 func (md *MysqlDB) QueryOne(k string, v interface{}, data interface{}, fields ...string) error {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -133,7 +133,7 @@ func (md *MysqlDB) QueryOne(k string, v interface{}, data interface{}, fields ..
 
 // Query 查找用户
 func (md *MysqlDB) Query(data any, query any, args ...any) error {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -145,8 +145,9 @@ func (md *MysqlDB) Query(data any, query any, args ...any) error {
 	tx := db.Where(query, args...).First(data)
 	return tx.Error
 }
+
 func (md *MysqlDB) QueryAll(data interface{}, order string, limit int, query interface{}, args ...interface{}) error {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -169,7 +170,7 @@ func (md *MysqlDB) QueryAll(data interface{}, order string, limit int, query int
 
 // Save 更新用户，fields空时，数据不存在会写入。非空时，不存在会更新失败
 func (md *MysqlDB) Save(data interface{}, fields ...string) error {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -186,7 +187,7 @@ func (md *MysqlDB) Save(data interface{}, fields ...string) error {
 
 // Save 更新用户，fields空时，数据不存在会写入。非空时，不存在会更新失败
 func (md *MysqlDB) SaveByWhere(data interface{}, k string, v interface{}, fields ...string) error {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -214,8 +215,8 @@ func (md *MysqlDB) Delete(data any, query any, args ...any) error {
 }
 
 // QueryList 分页查询
-func (md *MysqlDB) QueryList(data interface{}, order string, limit, index int, query interface{}, args ...interface{}) (int64, error) {
-	//mock
+func (md *MysqlDB) QueryList(data interface{}, preload, order string, limit, index int, query interface{}, args ...interface{}) (int64, error) {
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -237,6 +238,10 @@ func (md *MysqlDB) QueryList(data interface{}, order string, limit, index int, q
 		Db = Db.Order(order)
 	}
 
+	if preload != "" {
+		Db = Db.Preload(preload)
+	}
+
 	tx := Db.Limit(limit).Offset((index - 1) * limit).Find(data)
 	if err := tx.Error; err != nil {
 		return 0, err
@@ -246,7 +251,7 @@ func (md *MysqlDB) QueryList(data interface{}, order string, limit, index int, q
 
 // Count 查询数量
 func (md *MysqlDB) Count(data interface{}, query interface{}, args ...interface{}) (int64, error) {
-	//mock
+	// mock
 	if md.Mock != nil && len(md.Mock.Results) > 0 {
 		m := md.Mock.Results[0]
 		md.Mock.Results = md.Mock.Results[1:]
@@ -296,4 +301,14 @@ func Marshal(data interface{}, field string, fields ...string) string {
 	}
 
 	return string(buff)
+}
+
+func (md *MysqlDB) AssociationDelete(data any) error {
+	if md.Mock != nil && len(md.Mock.Results) > 0 {
+		m := md.Mock.Results[0]
+		md.Mock.Results = md.Mock.Results[1:]
+		return m.Err
+	}
+
+	return md.DB.Unscoped().Select(clause.Associations).Delete(data).Error
 }

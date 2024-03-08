@@ -2,7 +2,7 @@ package dbadmin
 
 import (
 	"fmt"
-	"{{projectName}}/services/web_backend/db"
+	"github.com/jkkkls/hjing/db"
 )
 
 var (

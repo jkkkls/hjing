@@ -11,14 +11,14 @@ import (
 )
 
 func openSqliteDB(dsn, dbName string) (*gorm.DB, error) {
-	//自带db参数
+	// 自带db参数
 	if !strings.Contains(dsn, "/?") {
 		return gorm.Open(sqlite.Open(dsn), &gorm.Config{
 			NamingStrategy: schema.NamingStrategy{
 				TablePrefix:   "tb_",
 				SingularTable: true,
 			},
-			SkipDefaultTransaction: true, //关闭事务
+			SkipDefaultTransaction: true, // 关闭事务
 		})
 	}
 
@@ -35,7 +35,7 @@ func openSqliteDB(dsn, dbName string) (*gorm.DB, error) {
 		return db, nil
 	}
 
-	//创建数据库
+	// 创建数据库
 	temp, err := gorm.Open(sqlite.Open(dsn))
 	if err != nil {
 		return nil, errors.Wrap(err, "gorm.Open: "+dsn)
@@ -74,7 +74,7 @@ func InitSqlite(dsn, dbName string, tables []any, results ...*MockResult) (*Mysq
 		return nil, errors.Wrap(err, "gorm.Open")
 	}
 
-	//初始化表
+	// 初始化表
 	err = md.DB.AutoMigrate(tables...)
 	if err != nil {
 		return nil, err
