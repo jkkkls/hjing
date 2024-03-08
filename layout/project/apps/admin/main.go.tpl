@@ -11,6 +11,7 @@ import (
 func main() {
 	rpc.NewApp("admin.yaml").
 		WithRegister(monitor.NewMonitorMgrService()).
+		// end register
 		WithPlugin(func(app *rpc.App) error {
 			web_backend.RunWebServices()
 			return nil
