@@ -180,7 +180,6 @@ create interface[set] for db success
 syntax = "proto3";
 package pb;  // 声明所在包
 option go_package = "github.com/jkkkls/test_app/pb";
-//import "libs/pb/cli_common.proto";
 
 message GetReq {
 	string key = 1;
