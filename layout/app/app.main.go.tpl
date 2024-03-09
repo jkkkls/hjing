@@ -9,7 +9,7 @@ import (
 
 func main() {
 	rpc.NewApp("{{appName}}.yaml").
-		WithRegister(monitor.NewMonitorMgrService()).
+		WithRegister(monitor.NewMonitorService()).
 		// end register
 		Run()
 }

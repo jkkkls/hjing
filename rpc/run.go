@@ -45,6 +45,15 @@ type App struct {
 type AppParam func(*App) error
 
 func NewApp(configName string) *App {
+	if configName == "" {
+		configName = *file
+	}
+	_, err := config.LoadConf(configName)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
+
 	return &App{configName: configName}
 }
 
@@ -100,18 +109,7 @@ func (app *App) Run() {
 		fmt.Println(err)
 	}
 
-	// 加载配置文件
-	var configName string
-	if *file != "" {
-		configName = *file
-	} else {
-		configName = app.configName
-	}
-	nodeConfig, err := config.LoadConf(configName)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	nodeConfig := config.ConfInstance
 
 	// 打开pprof
 	utils.RunMonitor()
@@ -121,6 +119,12 @@ func (app *App) Run() {
 
 	// pid文件
 	os.WriteFile("./"+nodeConfig.App.Name+".pid", []byte(strconv.Itoa(os.Getpid())), 0o666)
+
+	app.iRegister, err = NewEtcdRegister(nodeConfig.Etcds...)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
 	node, err := InitNode(app.iRegister, &NodeConfig{
 		Id:       nodeConfig.App.Id,
