@@ -87,7 +87,7 @@ var CmdAddApp = &cobra.Command{
 
 // isValidAppName 检查格式，只允许字母开头，大小字母和数字组成
 func isValidAppName(appName string) bool {
-	ok, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9]+$`, appName)
+	ok, _ := regexp.MatchString(`^[a-zA-Z][a-zA-Z0-9_]+$`, appName)
 	return ok
 }
 
