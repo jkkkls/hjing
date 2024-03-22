@@ -22,7 +22,7 @@ var CmdNew = &cobra.Command{
 		}
 
 		if !isValidDiomainName(args[0]) {
-			return fmt.Errorf("name is invalid")
+			return fmt.Errorf("projectName is invalid, name: %v", args[0])
 		}
 		return nil
 	},

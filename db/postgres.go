@@ -19,18 +19,21 @@ func openPgDB(dsn, dbName string) (*gorm.DB, error) {
 			TablePrefix:   "tb_",
 			SingularTable: true,
 		},
-		//Logger: logger.Default.LogMode(logger.Info),
+		// Logger: logger.Default.LogMode(logger.Info),
 	}
-	//注册json标签处理逻辑
-	// schema.RegisterSerializer("json", JSONSerializer{})
+	// 注册json标签处理逻辑
+	schema.RegisterSerializer("json", JSONSerializer{})
 
-	//自带db参数
+	// 自带db参数
 	if strings.Contains(dsn, "dbname=") {
 		return gorm.Open(postgres.Open(dsn), conf)
 	}
 
 	newDsn := dsn + " dbname=" + dbName
-	db, err := gorm.Open(postgres.Open(newDsn), conf)
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  newDsn,
+		PreferSimpleProtocol: true, // disables implicit prepared statement usage
+	}), conf)
 	log.Println(newDsn, err)
 	if err != nil && !strings.Contains(err.Error(), "SQLSTATE 3D000") {
 		return nil, err
@@ -38,7 +41,7 @@ func openPgDB(dsn, dbName string) (*gorm.DB, error) {
 		return db, nil
 	}
 
-	//创建数据库
+	// 创建数据库
 	temp, err := gorm.Open(postgres.Open(dsn))
 	if err != nil {
 		return nil, errors.Wrap(err, "gorm.Open: "+dsn)
@@ -49,12 +52,19 @@ func openPgDB(dsn, dbName string) (*gorm.DB, error) {
 		return nil, err
 	}
 
-	return gorm.Open(postgres.Open(newDsn), conf)
+	return gorm.Open(postgres.New(postgres.Config{
+		DSN:                  "user=gorm password=gorm dbname=gorm port=9920 sslmode=disable TimeZone=Asia/Shanghai",
+		PreferSimpleProtocol: true, // disables implicit prepared statement usage
+	}), conf)
+}
+
+type PartitionModel interface {
+	Partition() string
 }
 
 // InitMysql 初始化数据库
 // results 添加测试数据，调用需要计算好MysqlDB的函数调用顺序
-func InitPg(dsn, dbName string, tables []interface{}, results ...*MockResult) (*MysqlDB, error) {
+func InitPg(dsn, dbName string, tables []interface{}, partitions []PartitionModel, results ...*MockResult) (*MysqlDB, error) {
 	var (
 		err error
 		md  = &MysqlDB{}
@@ -72,10 +82,21 @@ func InitPg(dsn, dbName string, tables []interface{}, results ...*MockResult) (*
 		return nil, errors.Wrap(err, "gorm.Open")
 	}
 
-	//初始化表
-	err = md.DB.AutoMigrate(tables...)
-	if err != nil {
-		return nil, err
+	// 初始化表
+	for _, v := range tables {
+		err = md.DB.AutoMigrate(v)
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+	}
+
+	for _, v := range partitions {
+		err = md.DB.Debug().Set("gorm:table_options", v.Partition()).AutoMigrate(v)
+		if err != nil {
+			log.Println("---", err)
+			continue
+		}
 	}
 	return md, nil
 }
