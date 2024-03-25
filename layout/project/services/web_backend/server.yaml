@@ -1,5 +1,0 @@
-db:
-  type: sqlite
-  dsn: admin.db
-net:
-  address: :9095

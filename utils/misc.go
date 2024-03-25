@@ -311,3 +311,11 @@ func ExecCmd(dir, cmd string, args ...string) (string, error) {
 	// 打印命令行的标准输出
 	return command.Stdout.(*bytes.Buffer).String(), nil
 }
+
+// Pointer 返回指针
+func Pointer[T any](t T, returnNull bool) *T {
+	if returnNull {
+		return nil
+	}
+	return &t
+}

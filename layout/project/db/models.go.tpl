@@ -22,7 +22,7 @@ func InitDB(dbType, dbName, dsn string) error {
 	case "sqlite":
 		wdDB, err = db.InitMysql(dsn, dbName, models)
 	case "postgres":
-		wdDB, err = db.InitPg(dsn, dbName, models)
+		wdDB, err = db.InitPg(dsn, dbName, models, nil)
 	default:
 		return fmt.Errorf("错误的数据库配置，请检查配置db项，需要type和dsn字段")
 	}
