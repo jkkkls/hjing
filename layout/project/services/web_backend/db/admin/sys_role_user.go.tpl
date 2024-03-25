@@ -162,10 +162,11 @@ func UpdateSysPermissions(ps []*SysPermission) error {
 		m[v.Path] = v
 	}
 
-	var f func(p *SysPermission)
-	f = func(p *SysPermission) {
+	var f func(p *SysPermission, level int)
+	f = func(p *SysPermission, level int) {
 		v, ok := m[p.Path]
 		if !ok {
+			p.Level = level
 			p.Status = "normal"
 			adminDB.Save(p)
 		} else {
@@ -173,14 +174,14 @@ func UpdateSysPermissions(ps []*SysPermission) error {
 			p.ParentId = v.ParentId
 		}
 
-		for _, c := range p.Children {
+		for i, c := range p.Children {
 			c.ParentId = p.Id
-			f(c)
+			f(c, len(p.Children)-i)
 		}
 	}
 
-	for _, v := range ps {
-		f(v)
+	for i, v := range ps {
+		f(v, len(ps)-i)
 	}
 
 	return nil

@@ -30,6 +30,7 @@ type App struct {
 	logParams    []utils.LogParam
 	rpcNodeParam []GxNodeParam
 	iRegister    IRegister
+	close        AppCloser
 
 	// 长链接模块路由转发表，key为cmd id，value为模块名(Player.Login或者Player_Login)
 	// cmd.proto中定义的cmd格式为
@@ -42,7 +43,10 @@ type App struct {
 	cmds map[int32]string
 }
 
-type AppParam func(*App) error
+type (
+	AppParam  func(*App) error
+	AppCloser func(*App)
+)
 
 func NewApp(configName string) *App {
 	if configName == "" {
@@ -73,6 +77,13 @@ func (app *App) WithGxNodeParam(params ...GxNodeParam) *App {
 // 可以通过WithPlugin初始化全局属性，例如数据库链接等
 func (app *App) WithPlugin(f func(app *App) error) *App {
 	app.plugins = append(app.plugins, f)
+	return app
+}
+
+// WithClose 新增关闭函数，并返回修改后的App指针
+// 可以通过WithClose关闭全局资源，例如数据库链接等
+func (app *App) WithClose(fn AppCloser) *App {
+	app.close = fn
 	return app
 }
 
@@ -185,4 +196,8 @@ func (app *App) Run() {
 	}
 
 	node.Exit()
+
+	if app.close != nil {
+		app.close(app)
+	}
 }
