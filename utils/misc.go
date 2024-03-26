@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"golang.org/x/exp/constraints"
 )
 
@@ -318,4 +319,17 @@ func Pointer[T any](t T, returnNull bool) *T {
 		return nil
 	}
 	return &t
+}
+
+// SwapHander 返回json格式的handler
+func SwapHander(f func(c *gin.Context) (code int, ok bool, msg string)) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		code, ok, msg := f(c)
+		if code > 0 {
+			c.JSON(code, gin.H{
+				"success":      ok,
+				"errorMessage": msg,
+			})
+		}
+	}
 }
