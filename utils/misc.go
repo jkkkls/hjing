@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-resty/resty/v2"
 	"golang.org/x/exp/constraints"
 )
 
@@ -333,4 +335,39 @@ func SwapHandler(f func(c *gin.Context) (ok bool, msg string)) func(c *gin.Conte
 			})
 		}
 	}
+}
+
+func GetName(path string) string {
+	return strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+}
+
+// GenArray 将一个类型的数组转换为另一个类型的数组
+func GenArray[T1 any, T2 any](l []T2, f func(T2) T1) []T1 {
+	var ret []T1
+	for _, v := range l {
+		ret = append(ret, f(v))
+	}
+	return ret
+}
+
+// Array 将一个类型的数组转换为一个map
+func GenMap[K comparable, V any, T2 any](l []T2, f func(T2) (K, V)) map[K]V {
+	ret := make(map[K]V)
+	for _, v := range l {
+		k, v := f(v)
+		ret[k] = v
+	}
+	return ret
+}
+
+// Download 下载
+func Download(url string) ([]byte, error) {
+	rsp, err := resty.New().R().Get(url)
+	if err != nil {
+		return nil, err
+	}
+	if rsp.StatusCode() == http.StatusNotFound {
+		return nil, nil
+	}
+	return rsp.Body(), nil
 }
