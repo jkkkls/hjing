@@ -7,6 +7,7 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -166,7 +167,7 @@ func STT(str string) int64 {
 }
 
 // If 三目操作模拟函数
-func If[T comparable](x bool, a T, b T) T {
+func If[T any](x bool, a T, b T) T {
 	if x {
 		return a
 	}
@@ -329,6 +330,7 @@ func SwapHandler(f func(c *gin.Context) (ok bool, msg string)) func(c *gin.Conte
 	return func(c *gin.Context) {
 		ok, msg := f(c)
 		if msg != "" {
+			log.Println("--------------->", c.Request.URL.String(), ok, msg)
 			c.JSON(http.StatusOK, gin.H{
 				"success":      ok,
 				"errorMessage": msg,
